@@ -21,22 +21,22 @@ class Order():
         self.OrderType = orderType
         if price <= 0 or quantity <=0:
             raise(ValueError("Price and Quantity"))
-        self.Price = price
-        self.Quantity = quantity
-        self.Gas = gas
+        self.price = price
+        self.quantity = quantity
+        self.gas = gas
     
 
     def __str__(self) -> str:
         return "{type} {quantity}@{price}".format(
             type = self.OrderType,
-            quantity = self.Quantity,
-            price = self.Price
+            quantity = self.quantity,
+            price = self.price
         )
 
     def __eq__(self, obj):
         return isinstance(obj, Order) and  obj.OrderType == self.OrderType \
-            and isclose(obj.Price, self.Price, rel_tol=TOLERANCE) \
-            and isclose(obj.Quantity, self.Quantity, rel_tol=TOLERANCE) \
-            and isclose(obj.Gas , self.Gas, rel_tol=TOLERANCE) \
+            and isclose(obj.price, self.price, rel_tol=TOLERANCE) \
+            and isclose(obj.quantity, self.quantity, rel_tol=TOLERANCE) \
+            and isclose(obj.gas , self.gas, rel_tol=TOLERANCE) \
             and obj.uuid == self.uuid
     

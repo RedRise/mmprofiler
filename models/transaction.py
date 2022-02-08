@@ -28,11 +28,11 @@ class Transaction():
 def take_maker_order(order: Order) -> Transaction:
 
     if order.OrderType == OrderType.SELL:
-        signed_quantity = order.Quantity
+        signed_quantity = order.quantity
     elif order.OrderType == OrderType.BUY:
-        signed_quantity = - order.Quantity
+        signed_quantity = - order.quantity
     else:
         logging.error("OrderType not recognized.")
         return None
 
-    return Transaction(order.uuid, order.Price, signed_quantity)
+    return Transaction(order.uuid, order.price, signed_quantity)

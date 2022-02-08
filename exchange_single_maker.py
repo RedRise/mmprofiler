@@ -40,11 +40,11 @@ class ExchangeSingleMaker():
     def apply_arbitrage(self, price: float):
 
         offer = self.orderBook.get_best_offer()
-        if offer and offer.Price < price:
+        if offer and offer.price < price:
             _ = self.buy_at_first_rank()
             self.apply_arbitrage(price)
         else:
             bid = self.orderBook.get_best_bid()
-            if bid and price <= bid.Price:
+            if bid and price <= bid.price:
                 _ = self.sell_at_first_rank()
                 self.apply_arbitrage(price)

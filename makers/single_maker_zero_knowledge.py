@@ -22,8 +22,8 @@ class SingleMakerZeroKnowledge(Maker):
 
     @property
     def midPrice(self):
-        bid = self.orderBook.get_best_bid().Price
-        ask = self.orderBook.get_best_offer().Price
+        bid = self.orderBook.get_best_bid().price
+        ask = self.orderBook.get_best_offer().price
         return (bid+ask)/2
 
 
@@ -46,8 +46,8 @@ class SingleMakerZeroKnowledge(Maker):
                 self.orderBook.push_maker_order(
                     Order(OrderType.SELL, price, quantity, 1))
 
-        self.orderBook.ranked_offers.sort(key = lambda x: x.Price)
-        self.orderBook.ranked_bids.sort(key = lambda x: x.Price, reverse = True)
+        self.orderBook.ranked_offers.sort(key = lambda x: x.price)
+        self.orderBook.ranked_bids.sort(key = lambda x: x.price, reverse = True)
 
     def __init__(self, range_min: float, range_max: float, tickSize: float, quantity: int) -> None:
         super().__init__()
@@ -68,17 +68,17 @@ class SingleMakerZeroKnowledge(Maker):
         best_offer = self.orderBook.pop_best_offer()
 
         tx = take_maker_order(best_offer)
-        self.cash += best_offer.Quantity * best_offer.Price
-        self.asset -= best_offer.Quantity
+        self.cash += best_offer.quantity * best_offer.price
+        self.asset -= best_offer.quantity
 
         # replace liquidity
-        new_price = best_offer.Price - self.orderBook.tickSize
-        incr_quantity = best_offer.Quantity * best_offer.Price/new_price
+        new_price = best_offer.price - self.orderBook.tickSize
+        incr_quantity = best_offer.quantity * best_offer.price/new_price
 
         best_bid = self.orderBook.get_best_bid()
 
-        if best_bid and isclose(best_bid.Price, new_price, rel_tol=TOLERANCE):
-            best_bid.Quantity += incr_quantity
+        if best_bid and isclose(best_bid.price, new_price, rel_tol=TOLERANCE):
+            best_bid.quantity += incr_quantity
         else:
             new_bid = Order(OrderType.BUY, new_price, incr_quantity, 0)
             self.orderBook.ranked_bids.insert(0, new_bid)
@@ -94,16 +94,16 @@ class SingleMakerZeroKnowledge(Maker):
 
         best_bid = self.orderBook.pop_best_bid()
 
-        self.cash -= best_bid.Quantity * best_bid.Price
-        self.asset += best_bid.Quantity
+        self.cash -= best_bid.quantity * best_bid.price
+        self.asset += best_bid.quantity
 
         # replace liquidity
-        new_price = best_bid.Price + self.orderBook.tickSize
-        incr_quantity = best_bid.Quantity * best_bid.Price/new_price
+        new_price = best_bid.price + self.orderBook.tickSize
+        incr_quantity = best_bid.quantity * best_bid.price/new_price
 
         best_offer = self.orderBook.get_best_offer()
-        if best_offer and isclose(best_offer.Price, new_price, rel_tol=TOLERANCE):
-            best_offer.Quantity += incr_quantity
+        if best_offer and isclose(best_offer.price, new_price, rel_tol=TOLERANCE):
+            best_offer.quantity += incr_quantity
         else:
             new_offer = Order(OrderType.SELL, new_price, incr_quantity, 0)
             self.orderBook.ranked_offers.insert(0, new_offer)

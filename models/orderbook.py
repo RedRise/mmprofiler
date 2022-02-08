@@ -32,20 +32,20 @@ class OrderBook():
             bid = self.ranked_bids[i] if len(self.ranked_bids) > i else None
             ask = self.ranked_offers[i] if len(self.ranked_offers) > i else None
             result += info_template.format(
-                "{:.5f}".format(bid.Quantity) if bid else "", 
-                "{:.5f}".format(bid.Price) if bid else "", 
-                "{:.5f}".format(ask.Price) if ask else "", 
-                "{:.5f}".format(ask.Quantity) if ask else ""
+                "{:.5f}".format(bid.quantity) if bid else "", 
+                "{:.5f}".format(bid.price) if bid else "", 
+                "{:.5f}".format(ask.price) if ask else "", 
+                "{:.5f}".format(ask.quantity) if ask else ""
             )
 
         return result
 
     def push_maker_order(self, order: Order):
-        ticked_price = round(order.Price / self.tickSize, 0) * self.tickSize
-        if  not isclose(order.Price, ticked_price, rel_tol=1E-7):
+        ticked_price = round(order.price / self.tickSize, 0) * self.tickSize
+        if  not isclose(order.price, ticked_price, rel_tol=1E-7):
             logging.error("Trying to push order with wrong tickSize.")
             return
-        order.Price = ticked_price
+        order.price = ticked_price
 
         if (order.OrderType == OrderType.BUY):
             self.ranked_bids.append(order)
