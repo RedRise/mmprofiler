@@ -2,7 +2,7 @@
 
 Mangrove Maker Profiler
 
-See ```usecases_draft.py``` for demo.
+See ```usecases_xx.py``` files for demos.
 
 ## Requirements
 
