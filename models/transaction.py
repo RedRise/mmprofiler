@@ -1,4 +1,3 @@
-from enum import Enum
 from uuid import UUID, uuid4
 import logging
 

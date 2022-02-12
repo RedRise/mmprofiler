@@ -1,3 +1,5 @@
+from cmath import isclose
+from models.order import TOLERANCE
 from models.orderbook import OrderBook
 from models.transaction import Transaction
 from makers.single_maker_zero_knowledge import SingleMakerZeroKnowledge
@@ -37,14 +39,20 @@ class ExchangeSingleMaker():
             self.transactions.append(transaction)
         return transaction
 
-    def apply_arbitrage(self, price: float):
-
+    def apply_arbitrage(self, price: float):    
+        """ logic of external price coming to arbitrage the exchange. Maker 
+        orders are taken until price fit in bid/offer.
+        Warning on matching price with maker order limit (we dont trade the
+        liquidity redeployed, infinite loop if redeployed at same price).
+        """
         offer = self.orderBook.get_best_offer()
-        if offer and offer.price < price:
+        if offer and offer.price <= price:
             _ = self.buy_at_first_rank()
-            self.apply_arbitrage(price)
+            if offer and not isclose(offer.price, price, rel_tol=TOLERANCE):
+                self.apply_arbitrage(price)
         else:
             bid = self.orderBook.get_best_bid()
             if bid and price <= bid.price:
                 _ = self.sell_at_first_rank()
-                self.apply_arbitrage(price)
+                if bid and not isclose(bid.price, price, rel_tol=TOLERANCE):
+                    self.apply_arbitrage(price)

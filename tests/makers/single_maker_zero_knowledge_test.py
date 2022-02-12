@@ -1,21 +1,19 @@
-from asyncio import SendfileNotAvailableError
-from queue import PriorityQueue
 from makers.single_maker_zero_knowledge import SingleMakerZeroKnowledge
-from models.transaction import Transaction
-from models.orderbook import Order
 from math import isclose
 
 
 def test_init():
-    maker = SingleMakerZeroKnowledge(99, 102, 1, 1)
-    assert isclose(maker.midPrice, 100.5, abs_tol=1E-7)
+
+    maker = SingleMakerZeroKnowledge(100, 1, 2, 1, 2, 1)
+    assert isclose(maker.midPrice, 100, abs_tol=1E-7)
     assert maker.orderBook.tickSize == 1
     assert maker.orderBook.has_bid()
     assert maker.orderBook.has_offer()
 
 
 def test_take_at_first_rank():
-    maker = SingleMakerZeroKnowledge(90, 110, 0.5, 1)
+    maker = SingleMakerZeroKnowledge(100, 1, 20, 0.5, 20, 0.5)
+    assert isclose(maker.midPrice, 100, abs_tol=1E-7)
     assert maker.orderBook.has_bid()
     assert maker.orderBook.has_offer()
 
@@ -33,7 +31,7 @@ def test_take_at_first_rank():
 
 def test_liquidity_reposted():
 
-    maker = SingleMakerZeroKnowledge(90, 110, 0.5, 1)
+    maker = SingleMakerZeroKnowledge(100, 0.5, 20, 1, 20, 1)
 
     assert maker.orderBook.has_offer()
     assert maker.orderBook.has_bid()
@@ -50,7 +48,7 @@ def test_liquidity_reposted():
 
     tx2 = maker.buy_at_first_rank()
     assert tx2.price == 100
-    assert tx2.quantity > 1
+    assert isclose(tx2.quantity, 0.995)
 
     bid3 = maker.orderBook.get_best_bid()
     assert bid3.price == 99.5
@@ -61,20 +59,20 @@ def test_liquidity_reposted():
 
 def test_ccash_and_asset_position():
 
-    maker = SingleMakerZeroKnowledge(90, 110, 0.5, 1)
+    maker = SingleMakerZeroKnowledge(100, 0.5, 20, 1, 20, 1)
 
     assert maker.asset == 0
     assert maker.cash == 0
 
     _ = maker.buy_at_first_rank()
-    assert maker.cash == 100
+    assert maker.cash == 100.5
     assert maker.asset == -1
 
     _ = maker.buy_at_first_rank()
-    assert maker.cash == 200.5
+    assert maker.cash == 201.5
     assert maker.asset == -2
 
-    maker = SingleMakerZeroKnowledge(90, 110, 0.5, 1)
+    maker = SingleMakerZeroKnowledge(100, 0.5, 20, 1, 20, 1)
 
     assert maker.asset == 0
     assert maker.cash == 0

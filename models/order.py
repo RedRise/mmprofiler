@@ -2,8 +2,6 @@ from enum import Enum
 import uuid
 from math import isclose
 
-from more_itertools import quantify
-
 TOLERANCE = 1E-7
 
 class OrderType(Enum):

@@ -14,11 +14,9 @@ class SingleMakerZeroKnowledge(Maker):
 
     orderBook: OrderBook
 
-
     @property
     def tickSize(self):
         return self.orderBook.tickSize
-
 
     @property
     def midPrice(self):
@@ -27,37 +25,33 @@ class SingleMakerZeroKnowledge(Maker):
         return (bid+ask)/2
 
 
-    def _init_orderbook(self, range_min: float, range_max: float, tickSize: float, quantity: float):
+    def _init_orderbook(self, initMidPrice: float, tickSize: float, numBids: int, sizeBid: float, numOffers: int, sizeOffer: float):
         self.orderBook = OrderBook(tickSize)
 
-        rounded_min = _round_tick_size(range_min, tickSize)
-        rounded_max = _round_tick_size(range_max, tickSize)
-        steps = int(round((rounded_max - rounded_min) / tickSize, 0))
-        if steps % 2 == 1:
-            steps = steps+1
+        midPrice = _round_tick_size(initMidPrice, tickSize)
 
-        bid_n = steps/2
-        for i in range(0, steps):
-            price = rounded_min + i * tickSize
-            if i < bid_n:
+        for i in range(1, numBids+1):
+            price = midPrice - i * tickSize
+            if price > 0:
                 self.orderBook.push_maker_order(
-                    Order(OrderType.BUY, price, quantity, 1))
-            else:
-                self.orderBook.push_maker_order(
-                    Order(OrderType.SELL, price, quantity, 1))
+                    Order(OrderType.BUY, price, sizeBid, 1))
 
-        self.orderBook.ranked_offers.sort(key = lambda x: x.price)
-        self.orderBook.ranked_bids.sort(key = lambda x: x.price, reverse = True)
+        for i in range(1, numOffers+1):
+            price = midPrice + i * tickSize
+            self.orderBook.push_maker_order(
+                Order(OrderType.SELL, price, sizeOffer, 1))
 
-    def __init__(self, range_min: float, range_max: float, tickSize: float, quantity: int) -> None:
+        self.orderBook.ranked_offers.sort(key=lambda x: x.price)
+        self.orderBook.ranked_bids.sort(key=lambda x: x.price, reverse=True)
+
+
+    def __init__(self, initMidPrice: float, tickSize: float, numBids: int, sizeBid: float, numOffers: int, sizeOffer: float):
         super().__init__()
-        self._init_orderbook(range_min, range_max, tickSize, quantity)
-
-
+        self._init_orderbook(initMidPrice, tickSize, numBids,
+                             sizeBid, numOffers, sizeOffer)
 
     def start_trading_session(self):
         pass
-
 
     def buy_at_first_rank(self) -> Transaction:
 
@@ -85,7 +79,6 @@ class SingleMakerZeroKnowledge(Maker):
 
         return tx
 
-
     def sell_at_first_rank(self) -> Transaction:
 
         if not self.orderBook.has_bid():
@@ -111,5 +104,3 @@ class SingleMakerZeroKnowledge(Maker):
         tx = take_maker_order(best_bid)
 
         return tx
-
-

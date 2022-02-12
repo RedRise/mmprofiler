@@ -1,7 +1,6 @@
 from math import sqrt
 import numpy as np
 from numpy.random import default_rng
-from typing import List
 
 def geom_brownian_path(
     initPrice, 
