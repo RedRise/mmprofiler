@@ -26,7 +26,8 @@ class OrderBook:
         hline = hline_template.format("", "", "", "", fill="-")
 
         result = hline
-        result += header_template.format("Qty Bid", "Px Bid", "Px Ask", "Qty Ask")
+        result += header_template.format("Qty Bid",
+                                         "Px Bid", "Px Ask", "Qty Ask")
         result += hline
 
         for i in range(0, min([5, max(len(self.ranked_bids), len(self.ranked_asks))])):
@@ -48,7 +49,7 @@ class OrderBook:
             return
         order.price = ticked_price
 
-        if order.OrderType == OrderType.BUY:
+        if order.order_type == OrderType.BUY:
             if self.has_bid():
                 if self.ranked_bids[-1].price < order.price:
                     logging.error(
@@ -60,7 +61,7 @@ class OrderBook:
 
             self.ranked_bids.append(order)
 
-        elif order.OrderType == OrderType.SELL:
+        elif order.order_type == OrderType.SELL:
             if self.has_ask():
                 if order.price < self.ranked_asks[-1].price:
                     logging.error(

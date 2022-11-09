@@ -2,7 +2,7 @@ from cmath import isclose
 from models.order import TOLERANCE
 from models.orderbook import OrderBook
 from models.transaction import Transaction
-from makers.maker_zero_knowledge import MakerZeroKnowledge
+from makers.maker import Maker
 from typing import List
 
 # first implementation of single-maker/single-taker exchange
@@ -14,13 +14,13 @@ class ExchangeSingleMaker():
 
     @property
     def orderBook(self) -> OrderBook:
-        return self.maker.orderBook
+        return self.maker.offersLists
 
     @property
     def midPrice(self):
         return self.maker.midPrice
 
-    def __init__(self, maker: MakerZeroKnowledge) -> None:
+    def __init__(self, maker: Maker) -> None:
         self.transactions = []
         self.maker = maker
 
@@ -39,7 +39,7 @@ class ExchangeSingleMaker():
             self.transactions.append(transaction)
         return transaction
 
-    def apply_arbitrage(self, price: float):    
+    def apply_arbitrage(self, price: float):
         """ logic of external price coming to arbitrage the exchange. Maker 
         orders are taken until price fit in bid/offer.
         Warning on matching price with maker order limit (we dont trade the

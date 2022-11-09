@@ -1,9 +1,10 @@
 from cmath import isclose
 import logging
-from models.order import TOLERANCE, Order
+from models.order import TOLERANCE, Order, OrderType
 from models.transaction import Transaction, take_maker_order
 from models.offers_lists import OffersLists
 from makers.maker import Maker
+from typing import Callable
 
 
 def _round_tick_size(val: float, tick: float) -> float:
@@ -16,47 +17,61 @@ class MakerDelta(Maker):
 
     offersLists: OffersLists
 
-    @property
-    def tickSize(self):
-        return self.offersLists.tickSize
+    deltaFun: Callable[[float], float]
+
+    currentMissingOffer: float
+
+    # @property
+    # def tickSize(self):
+    #     return self.offersLists.tickSize
 
     @property
     def midPrice(self):
         bid = self.offersLists.get_best_bid().price
-        ask = self.offersLists.get_best_offer().price
+        ask = self.offersLists.get_best_ask().price
         return (bid + ask) / 2
 
-    def _init_orderbook(self, initMidPrice: float, delta_function, tick_spacer):
-        """
-        initMidPrice : starting price to count ticks and deposit offers. No offer on this price.
-        """
+    def _init_orderbook(self,
+                        initMidPrice: float,
+                        minTickSize: float,
+                        numOneWayOffers: int,
+                        tickInterval: int = None,
+                        tickQuantity: float = None):
 
-        self.offersLists = OrderBook(tickSize)
+        self.currentMissingOffer = initMidPrice
+        self.offersLists = OffersLists()
 
-        midPrice = _round_tick_size(initMidPrice, tickSize)
-
-        for i in range(1, numBids + 1):
-            price = midPrice - i * tickSize
-            if price > 0:
-                self.offersLists.push_maker_order(
-                    Order(OrderType.BUY, price, sizeBid, 1)
+        delta_prev = self.deltaFun(initMidPrice)
+        for i in range(1, numOneWayOffers + 1):
+            price = initMidPrice - i * minTickSize * tickInterval
+            delta_current = self.deltaFun(price)
+            gamma = delta_current - delta_prev
+            delta_prev = delta_current
+            # gamma should be positive because deltaFun should be decreasing
+            if (price > 0) and (gamma > 0):
+                self.offersLists.add_maker_order(
+                    Order(OrderType.BUY, price, gamma)
                 )
 
-        for i in range(1, numAsks + 1):
-            price = midPrice + i * tickSize
-            self.offersLists.push_maker_order(Order(OrderType.SELL, price, sizeAsk, 1))
-
-        self.offersLists.ranked_offers.sort(key=lambda x: x.price)
-        self.offersLists.ranked_bids.sort(key=lambda x: x.price, reverse=True)
+        delta_prev = self.deltaFun(initMidPrice)
+        for i in range(1, numOneWayOffers + 1):
+            price = initMidPrice + i * minTickSize * tickInterval
+            delta_current = self.deltaFun(price)
+            gamma = delta_current - delta_prev
+            delta_prev = delta_current
+            # gamma should be negatgive because deltaFun should be decreasing
+            if (gamma < 0):
+                self.offersLists.add_maker_order(
+                    Order(OrderType.SELL, price, - gamma))
 
     def __init__(
         self,
         initMidPrice: float,
-        deltaFunction,
+        deltaFunction: Callable[[float], float],
         minTickSize: float,
         numOneWayOffers: int,
         tickInterval: int = None,
-        tickQuantity: float = None,
+        tickQuantity: float = None
     ):
         """
         minTickSize     : the tickSize of the underlying internal orderBook
@@ -65,38 +80,32 @@ class MakerDelta(Maker):
         tickQuantity    : if not None, offers will be deployed at prices that require delta adjustment of tickQuantity
         """
         super().__init__()
+        self.deltaFun = deltaFunction
         self._init_orderbook(
-            initMidPrice, tickSize, numBids, sizeBid, numOffers, sizeOffer
-        )
+            initMidPrice, minTickSize, numOneWayOffers, tickInterval, tickQuantity)
 
     def start_trading_session(self):
         pass
 
     def buy_at_first_rank(self) -> Transaction:
 
-        if not self.offersLists.has_offer():
+        if not self.offersLists.has_ask():
             logging.error("No offer available, transaction failed.")
             return None
 
-        best_offer = self.offersLists.pop_best_offer()
+        best_ask = self.offersLists.pop_best_ask()
 
-        tx = take_maker_order(best_offer)
-        self.cash += best_offer.quantity * best_offer.price
-        self.asset -= best_offer.quantity
+        self.cash += best_ask.quantity * best_ask.price
+        self.asset -= best_ask.quantity
 
         # replace liquidity
-        new_price = best_offer.price - self.offersLists.tickSize
-        incr_quantity = best_offer.quantity * best_offer.price / new_price
+        self.offersLists.ranked_bids.add(
+            Order(OrderType.BUY, self.currentMissingOffer, best_ask.quantity))
 
-        best_bid = self.offersLists.get_best_bid()
+        # update missing price offer
+        self.currentMissingOffer = best_ask.price
 
-        if best_bid and isclose(best_bid.price, new_price, rel_tol=TOLERANCE):
-            best_bid.quantity += incr_quantity
-        else:
-            new_bid = Order(OrderType.BUY, new_price, incr_quantity, 0)
-            self.offersLists.ranked_bids.insert(0, new_bid)
-
-        return tx
+        return take_maker_order(best_ask)
 
     def sell_at_first_rank(self) -> Transaction:
 
@@ -110,16 +119,10 @@ class MakerDelta(Maker):
         self.asset += best_bid.quantity
 
         # replace liquidity
-        new_price = best_bid.price + self.offersLists.tickSize
-        incr_quantity = best_bid.quantity * best_bid.price / new_price
+        self.offersLists.ranked_asks.add(
+            Order(OrderType.SELL, self.currentMissingOffer, best_bid.quantity))
 
-        best_offer = self.offersLists.get_best_offer()
-        if best_offer and isclose(best_offer.price, new_price, rel_tol=TOLERANCE):
-            best_offer.quantity += incr_quantity
-        else:
-            new_offer = Order(OrderType.SELL, new_price, incr_quantity, 0)
-            self.offersLists.ranked_offers.insert(0, new_offer)
+        # update missing price offer
+        self.currentMissingOffer = best_bid.price
 
-        tx = take_maker_order(best_bid)
-
-        return tx
+        return take_maker_order(best_bid)

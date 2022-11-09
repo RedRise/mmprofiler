@@ -43,12 +43,13 @@ class MakerZeroKnowledge(Maker):
             price = midPrice - i * tickSize
             if price > 0:
                 self.orderBook.append_maker_order(
-                    Order(OrderType.BUY, price, sizeBid, 1)
+                    Order(OrderType.BUY, price, sizeBid)
                 )
 
         for i in range(1, numAsks + 1):
             price = midPrice + i * tickSize
-            self.orderBook.append_maker_order(Order(OrderType.SELL, price, sizeAsk, 1))
+            self.orderBook.append_maker_order(
+                Order(OrderType.SELL, price, sizeAsk))
 
         self.orderBook.ranked_asks.sort(key=lambda x: x.price)
         self.orderBook.ranked_bids.sort(key=lambda x: x.price, reverse=True)
@@ -98,7 +99,7 @@ class MakerZeroKnowledge(Maker):
         if best_bid and isclose(best_bid.price, new_price, rel_tol=TOLERANCE):
             best_bid.quantity += incr_quantity
         else:
-            new_bid = Order(OrderType.BUY, new_price, incr_quantity, 0)
+            new_bid = Order(OrderType.BUY, new_price, incr_quantity)
             self.orderBook.ranked_bids.insert(0, new_bid)
 
         return tx
@@ -122,7 +123,7 @@ class MakerZeroKnowledge(Maker):
         if best_offer and isclose(best_offer.price, new_price, rel_tol=TOLERANCE):
             best_offer.quantity += incr_quantity
         else:
-            new_offer = Order(OrderType.SELL, new_price, incr_quantity, 0)
+            new_offer = Order(OrderType.SELL, new_price, incr_quantity)
             self.orderBook.ranked_asks.insert(0, new_offer)
 
         tx = take_maker_order(best_bid)
