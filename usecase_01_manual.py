@@ -2,9 +2,9 @@
 # Playing with console prints of orderbook and maker.
 
 from exchange_single_maker import ExchangeSingleMaker
-from makers.single_maker_zero_knowledge import SingleMakerZeroKnowledge
+from makers.maker_zero_knowledge import MakerZeroKnowledge
 
-maker = SingleMakerZeroKnowledge(initMidPrice=100, tickSize=0.5, numBids=10, sizeBid=0.1, numOffers=10, sizeOffer=0.1)
+maker = MakerZeroKnowledge(initMidPrice=100, tickSize=0.5, numBids=10, sizeBid=0.1, numOffers=10, sizeOffer=0.1)
 exchange = ExchangeSingleMaker(maker)
 
 print(exchange.orderBook)

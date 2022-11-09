@@ -1,8 +1,8 @@
 from cmath import isclose
 import logging
-from models.order import TOLERANCE, Order
+from models.order import TOLERANCE, Order, OrderType
 from models.transaction import Transaction, take_maker_order
-from models.orderbook import OrderBook, Order, OrderType
+from models.orderbook import OrderBook
 from makers.maker import Maker
 
 
@@ -10,7 +10,9 @@ def _round_tick_size(val: float, tick: float) -> float:
     return round(val / tick, 0) * tick
 
 
-class SingleMakerZeroKnowledge(Maker):
+class MakerZeroKnowledge(Maker):
+    """This class implements the zero knownledge MM, deploying a strip of
+    offers, every tickSize"""
 
     orderBook: OrderBook
 
@@ -21,45 +23,67 @@ class SingleMakerZeroKnowledge(Maker):
     @property
     def midPrice(self):
         bid = self.orderBook.get_best_bid().price
-        ask = self.orderBook.get_best_offer().price
-        return (bid+ask)/2
+        ask = self.orderBook.get_best_ask().price
+        return (bid + ask) / 2
 
-
-    def _init_orderbook(self, initMidPrice: float, tickSize: float, numBids: int, sizeBid: float, numOffers: int, sizeOffer: float):
+    def _init_orderbook(
+        self,
+        initMidPrice: float,
+        tickSize: float,
+        numBids: int,
+        sizeBid: float,
+        numAsks: int,
+        sizeAsk: float,
+    ):
         self.orderBook = OrderBook(tickSize)
 
         midPrice = _round_tick_size(initMidPrice, tickSize)
 
-        for i in range(1, numBids+1):
+        for i in range(1, numBids + 1):
             price = midPrice - i * tickSize
             if price > 0:
-                self.orderBook.push_maker_order(
-                    Order(OrderType.BUY, price, sizeBid, 1))
+                self.orderBook.append_maker_order(
+                    Order(OrderType.BUY, price, sizeBid, 1)
+                )
 
-        for i in range(1, numOffers+1):
+        for i in range(1, numAsks + 1):
             price = midPrice + i * tickSize
-            self.orderBook.push_maker_order(
-                Order(OrderType.SELL, price, sizeOffer, 1))
+            self.orderBook.append_maker_order(Order(OrderType.SELL, price, sizeAsk, 1))
 
-        self.orderBook.ranked_offers.sort(key=lambda x: x.price)
+        self.orderBook.ranked_asks.sort(key=lambda x: x.price)
         self.orderBook.ranked_bids.sort(key=lambda x: x.price, reverse=True)
 
-
-    def __init__(self, initMidPrice: float, tickSize: float, numBids: int, sizeBid: float, numOffers: int, sizeOffer: float):
+    def __init__(
+        self,
+        initMidPrice: float,
+        tickSize: float,
+        numBids: int,
+        sizeBid: float,
+        numOffers: int,
+        sizeOffer: float,
+    ):
+        """
+        initMidPrice : starting price to count ticks and deposit offers. No offer on this price.
+        numBids      : the number of bids that will be deposited
+        sizeBids     : the size of the bid offers
+        numAsks      : the number of asks that will be deposited
+        sizeAsk      : the size of the ask offers
+        """
         super().__init__()
-        self._init_orderbook(initMidPrice, tickSize, numBids,
-                             sizeBid, numOffers, sizeOffer)
+        self._init_orderbook(
+            initMidPrice, tickSize, numBids, sizeBid, numOffers, sizeOffer
+        )
 
     def start_trading_session(self):
         pass
 
     def buy_at_first_rank(self) -> Transaction:
 
-        if not self.orderBook.has_offer():
+        if not self.orderBook.has_ask():
             logging.error("No offer available, transaction failed.")
             return None
 
-        best_offer = self.orderBook.pop_best_offer()
+        best_offer = self.orderBook.pop_best_ask()
 
         tx = take_maker_order(best_offer)
         self.cash += best_offer.quantity * best_offer.price
@@ -67,7 +91,7 @@ class SingleMakerZeroKnowledge(Maker):
 
         # replace liquidity
         new_price = best_offer.price - self.orderBook.tickSize
-        incr_quantity = best_offer.quantity * best_offer.price/new_price
+        incr_quantity = best_offer.quantity * best_offer.price / new_price
 
         best_bid = self.orderBook.get_best_bid()
 
@@ -92,14 +116,14 @@ class SingleMakerZeroKnowledge(Maker):
 
         # replace liquidity
         new_price = best_bid.price + self.orderBook.tickSize
-        incr_quantity = best_bid.quantity * best_bid.price/new_price
+        incr_quantity = best_bid.quantity * best_bid.price / new_price
 
-        best_offer = self.orderBook.get_best_offer()
+        best_offer = self.orderBook.get_best_ask()
         if best_offer and isclose(best_offer.price, new_price, rel_tol=TOLERANCE):
             best_offer.quantity += incr_quantity
         else:
             new_offer = Order(OrderType.SELL, new_price, incr_quantity, 0)
-            self.orderBook.ranked_offers.insert(0, new_offer)
+            self.orderBook.ranked_asks.insert(0, new_offer)
 
         tx = take_maker_order(best_bid)
 

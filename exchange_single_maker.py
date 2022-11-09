@@ -2,7 +2,7 @@ from cmath import isclose
 from models.order import TOLERANCE
 from models.orderbook import OrderBook
 from models.transaction import Transaction
-from makers.single_maker_zero_knowledge import SingleMakerZeroKnowledge
+from makers.maker_zero_knowledge import MakerZeroKnowledge
 from typing import List
 
 # first implementation of single-maker/single-taker exchange
@@ -20,7 +20,7 @@ class ExchangeSingleMaker():
     def midPrice(self):
         return self.maker.midPrice
 
-    def __init__(self, maker: SingleMakerZeroKnowledge) -> None:
+    def __init__(self, maker: MakerZeroKnowledge) -> None:
         self.transactions = []
         self.maker = maker
 
@@ -45,7 +45,7 @@ class ExchangeSingleMaker():
         Warning on matching price with maker order limit (we dont trade the
         liquidity redeployed, infinite loop if redeployed at same price).
         """
-        offer = self.orderBook.get_best_offer()
+        offer = self.orderBook.get_best_ask()
         if offer and offer.price <= price:
             _ = self.buy_at_first_rank()
             if offer and not isclose(offer.price, price, rel_tol=TOLERANCE):

@@ -1,7 +1,7 @@
 # USECASE [02] Iterating through a range of prices to plot maker pnl
 
 from exchange_single_maker import ExchangeSingleMaker
-from makers.single_maker_zero_knowledge import SingleMakerZeroKnowledge
+from makers.maker_zero_knowledge import MakerZeroKnowledge
 from utils import compute_maker_pnls
 import pandas as pd
 import numpy as np
@@ -12,7 +12,7 @@ tick = 0.5
 numBids = numOffers = int(40/tick)
 size = 2 / (numBids+numOffers)
 
-maker = SingleMakerZeroKnowledge(initMidPrice=px_init, tickSize=tick, numBids=numBids, sizeBid=size, numOffers=numOffers, sizeOffer=size)
+maker = MakerZeroKnowledge(initMidPrice=px_init, tickSize=tick, numBids=numBids, sizeBid=size, numOffers=numOffers, sizeOffer=size)
 exchange = ExchangeSingleMaker(maker)
 
 while True:
@@ -22,7 +22,7 @@ while True:
 pnl_up = compute_maker_pnls(exchange.transactions)
 
 # sell until px_min
-maker = SingleMakerZeroKnowledge(initMidPrice=px_init, tickSize=tick, numBids=numBids, sizeBid=size, numOffers=numOffers, sizeOffer=size)
+maker = MakerZeroKnowledge(initMidPrice=px_init, tickSize=tick, numBids=numBids, sizeBid=size, numOffers=numOffers, sizeOffer=size)
 exchange = ExchangeSingleMaker(maker)
 while True:
     tx = exchange.sell_at_first_rank()

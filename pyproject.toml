@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "mmprofiler"
+version = "0.1.0"
+description = "Mangrove/Market Maker Profiler"
+authors = ["Guillaume Garchery <polluxxx@gmail.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+numpy = "^1.23.4"
+pandas = "^1.5.1"
+plotly = "^5.11.0"
+
+[tool.poetry.dev-dependencies]
+pytest = "^7.2.0"
+black = {version = "^22.10.0", allow-prereleases = true}
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

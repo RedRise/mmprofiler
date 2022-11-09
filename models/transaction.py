@@ -1,7 +1,6 @@
 from uuid import UUID, uuid4
 import logging
 
-from pyparsing import Or
 from models.order import Order, OrderType
 
 

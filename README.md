@@ -1,15 +1,15 @@
 # MMPROFILER
 
-Mangrove Maker Profiler
+Mangrove/Marekt Maker Profiler
+
+## Setup
+
+1. Install Poetry
+2. run poetry install
 
 ## Usage
 
 See ```usecase_xx.py``` files for demos.
-
-## Install Conda env with required dependencies
-
-```conda env create -n your_env_name -f mmmprofiler_deps.yaml -v python=3.9```
-
 
 ## Module import issue
 

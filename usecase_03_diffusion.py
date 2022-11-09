@@ -3,7 +3,7 @@
 
 import logging
 from exchange_single_maker import ExchangeSingleMaker
-from makers.single_maker_zero_knowledge import SingleMakerZeroKnowledge
+from makers.maker_zero_knowledge import MakerZeroKnowledge
 import pandas as pd
 import plotly.express as px
 from simul.path_generators import geom_brownian_path
@@ -31,7 +31,7 @@ size = 2 / (numBids+numOffers)
 # wrap arbitrage logic
 def simul_one_path():
 
-    maker = SingleMakerZeroKnowledge(
+    maker = MakerZeroKnowledge(
         initMidPrice=px_init, 
         tickSize=tick,
         numBids=numBids, 

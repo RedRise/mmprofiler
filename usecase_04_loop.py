@@ -3,12 +3,12 @@
 
 import pandas as pd
 from exchange_single_maker import ExchangeSingleMaker
-from makers.single_maker_zero_knowledge import SingleMakerZeroKnowledge
+from makers.maker_zero_knowledge import MakerZeroKnowledge
 import plotly.express as px
 from utils import orderbook_to_dataframe
 
 
-maker = SingleMakerZeroKnowledge(initMidPrice=100, tickSize=0.5, numBids=20, sizeBid=0.1, numOffers=20, sizeOffer=0.1)
+maker = MakerZeroKnowledge(initMidPrice=100, tickSize=0.5, numBids=20, sizeBid=0.1, numOffers=20, sizeOffer=0.1)
 exchange = ExchangeSingleMaker(maker)
 print(exchange.orderBook)
 

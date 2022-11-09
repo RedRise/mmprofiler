@@ -1,23 +1,23 @@
-from makers.single_maker_zero_knowledge import SingleMakerZeroKnowledge
+from makers.maker_zero_knowledge import MakerZeroKnowledge
 from math import isclose
 
 
 def test_init():
 
-    maker = SingleMakerZeroKnowledge(100, 1, 2, 1, 2, 1)
+    maker = MakerZeroKnowledge(100, 1, 2, 1, 2, 1)
     assert isclose(maker.midPrice, 100, abs_tol=1E-7)
     assert maker.orderBook.tickSize == 1
     assert maker.orderBook.has_bid()
-    assert maker.orderBook.has_offer()
+    assert maker.orderBook.has_ask()
 
 
 def test_take_at_first_rank():
-    maker = SingleMakerZeroKnowledge(100, 1, 20, 0.5, 20, 0.5)
+    maker = MakerZeroKnowledge(100, 1, 20, 0.5, 20, 0.5)
     assert isclose(maker.midPrice, 100, abs_tol=1E-7)
     assert maker.orderBook.has_bid()
-    assert maker.orderBook.has_offer()
+    assert maker.orderBook.has_ask()
 
-    best_offer = maker.orderBook.get_best_offer()
+    best_offer = maker.orderBook.get_best_ask()
     tx1 = maker.buy_at_first_rank()
     assert tx1.price == best_offer.price
     assert tx1.quantity == best_offer.quantity
@@ -31,9 +31,9 @@ def test_take_at_first_rank():
 
 def test_liquidity_reposted():
 
-    maker = SingleMakerZeroKnowledge(100, 0.5, 20, 1, 20, 1)
+    maker = MakerZeroKnowledge(100, 0.5, 20, 1, 20, 1)
 
-    assert maker.orderBook.has_offer()
+    assert maker.orderBook.has_ask()
     assert maker.orderBook.has_bid()
 
     bid1 = maker.orderBook.get_best_bid()
@@ -53,13 +53,13 @@ def test_liquidity_reposted():
     bid3 = maker.orderBook.get_best_bid()
     assert bid3.price == 99.5
 
-    ask1 = maker.orderBook.get_best_offer()
+    ask1 = maker.orderBook.get_best_ask()
     assert ask1.price == 100.5
 
 
 def test_ccash_and_asset_position():
 
-    maker = SingleMakerZeroKnowledge(100, 0.5, 20, 1, 20, 1)
+    maker = MakerZeroKnowledge(100, 0.5, 20, 1, 20, 1)
 
     assert maker.asset == 0
     assert maker.cash == 0
@@ -72,7 +72,7 @@ def test_ccash_and_asset_position():
     assert maker.cash == 201.5
     assert maker.asset == -2
 
-    maker = SingleMakerZeroKnowledge(100, 0.5, 20, 1, 20, 1)
+    maker = MakerZeroKnowledge(100, 0.5, 20, 1, 20, 1)
 
     assert maker.asset == 0
     assert maker.cash == 0
