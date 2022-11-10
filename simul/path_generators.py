@@ -10,6 +10,7 @@ def geom_brownian_path(
     numDaysToSimul,
     numStepPerDay: int = 1,
     numDaysPerYearConvention: int = 252,
+    seed: int = None,
 ):
 
     if initPrice < 0:
@@ -25,7 +26,7 @@ def geom_brownian_path(
     dt = 1 / float(numDaysPerYearConvention * numStepPerDay)
     numSimul = numDaysToSimul * numStepPerDay
 
-    rng = default_rng()
+    rng = default_rng(seed=seed)
 
     e = rng.normal(0, 1, int(numSimul))
 
