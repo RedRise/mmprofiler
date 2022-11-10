@@ -4,12 +4,13 @@ from numpy.random import default_rng
 
 
 def geom_brownian_path(
-        initPrice,
-        yearlyDrift,
-        yearlyVolat,
-        numDaysToSimul,
-        numStepPerDay: int = 1,
-        numDaysPerYearConvention: int = 252):
+    initPrice,
+    yearlyDrift,
+    yearlyVolat,
+    numDaysToSimul,
+    numStepPerDay: int = 1,
+    numDaysPerYearConvention: int = 252,
+):
 
     if initPrice < 0:
         raise ValueError("initPrice should be positive.")
@@ -26,7 +27,9 @@ def geom_brownian_path(
 
     rng = default_rng()
 
-    e = rng.normal(0, 1, numSimul)
-    exponent = (yearlyDrift - 0.5 * yearlyVolat**2) * \
-        dt + yearlyVolat * sqrt(dt) * e
+    e = rng.normal(0, 1, int(numSimul))
+
+    exponent = (yearlyDrift - 0.5 * yearlyVolat**2) * dt + yearlyVolat * sqrt(dt) * e
+    exponent[0] = 0
+
     return initPrice * np.exp(np.cumsum(exponent))

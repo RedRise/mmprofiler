@@ -5,7 +5,7 @@ from math import isclose
 
 
 class OrderBook:
-    tickSize = 0.01
+    tickSize: float
     ranked_bids: List[Order] = []
     ranked_asks: List[Order] = []
 
@@ -26,8 +26,7 @@ class OrderBook:
         hline = hline_template.format("", "", "", "", fill="-")
 
         result = hline
-        result += header_template.format("Qty Bid",
-                                         "Px Bid", "Px Ask", "Qty Ask")
+        result += header_template.format("Qty Bid", "Px Bid", "Px Ask", "Qty Ask")
         result += hline
 
         for i in range(0, min([5, max(len(self.ranked_bids), len(self.ranked_asks))])):

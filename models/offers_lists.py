@@ -2,13 +2,20 @@ from models.order import Order, OrderType
 from sortedcontainers import SortedList
 import logging
 from typing import List
+
 # from math import isclose
 
 
-class OffersLists():
+class OffersLists:
 
     ranked_bids: SortedList
     ranked_asks: SortedList
+
+    @property
+    def midPrice(self):
+        bid = self.orderBook.get_best_bid().price
+        ask = self.orderBook.get_best_ask().price
+        return (bid + ask) / 2
 
     def __init__(self) -> None:
         self.ranked_bids = SortedList()
@@ -23,28 +30,26 @@ class OffersLists():
         hline = hline_template.format("", "", "", "", fill="-")
 
         result = hline
-        result += header_template.format("Qty Bid",
-                                         "Px Bid", "Px Ask", "Qty Ask")
+        result += header_template.format("Qty Bid", "Px Bid", "Px Ask", "Qty Ask")
         result += hline
 
         for i in range(0, min([5, max(len(self.ranked_bids), len(self.ranked_asks))])):
             bid = self.ranked_bids[i] if len(self.ranked_bids) > i else None
-            ask = self.ranked_asks[i] if len(
-                self.ranked_asks) > i else None
+            ask = self.ranked_asks[i] if len(self.ranked_asks) > i else None
             result += info_template.format(
                 "{:.5f}".format(bid.quantity) if bid else "",
                 "{:.5f}".format(bid.price) if bid else "",
                 "{:.5f}".format(ask.price) if ask else "",
-                "{:.5f}".format(ask.quantity) if ask else ""
+                "{:.5f}".format(ask.quantity) if ask else "",
             )
 
         return result
 
-    def add_maker_order(self, order: Order):
+    def add_order(self, order: Order):
 
-        if (order.order_type == OrderType.BUY):
+        if order.order_type == OrderType.BUY:
             self.ranked_bids.add(order)
-        elif (order.order_type == OrderType.SELL):
+        elif order.order_type == OrderType.SELL:
             self.ranked_asks.add(order)
         else:
             logging.info("Order type not recognized, nothing pushed.")
@@ -72,3 +77,7 @@ class OffersLists():
 
     def pop_best_ask(self) -> Order:
         return self.ranked_asks.pop(0)
+
+    def clear(self):
+        self.ranked_bids.clear()
+        self.ranked_asks.clear()

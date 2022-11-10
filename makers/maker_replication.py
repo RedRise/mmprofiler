@@ -1,20 +1,21 @@
-from cmath import isclose
 import logging
 from models.order import TOLERANCE, Order, OrderType
 from models.transaction import Transaction, take_maker_order
 from models.offers_lists import OffersLists
 from makers.maker import Maker
-from typing import Callable, Dict
+from typing import Callable
 
 
-class MakerDelta(Maker):
+class MakerReplication(Maker):
     """This class implements a maket that deposits offers depending on a
-    mm-delta function."""
+    replication strategy i.e. delta_fun(x, t)."""
 
     offersLists: OffersLists
 
-    deltaFun: Callable[[float], float]
-    deltaFunCache: Dict[float, float]
+    # deltafun(price, time_to_live) -> delta
+    maturity: float
+    ttl: float
+    deltaFun: Callable[[float, float], float]
 
     # (simplification pattern) this is like the mid_price that does not contains
     # offer. This price will be offered next time the best bid/ask is taken.
@@ -35,17 +36,15 @@ class MakerDelta(Maker):
         ask = self.offersLists.get_best_ask().price
         return (bid + ask) / 2
 
-    def computeDelta(self, x: float) -> float:
-        value = self.deltaFunCache.get(x, None)
-        if not value:
-            value = self.deltaFun(x)
-            self.deltaFunCache[x] = value
-        return value
+    def updateTime(self, time: float):
+        """Update time, to update delta function"""
+        self.ttl = max(0, self.maturity - time)
 
-    def _init_orderbook(
-        self,
-        initMidPrice: float,
-    ):
+    def computeDelta(self, x: float) -> float:
+        val = self.deltaFun(x, self.ttl)
+        return val
+
+    def _init_orderbook(self, initMidPrice: float, time: float):
 
         self.currentMissingOffer = None
         self.lastOffer = None
@@ -74,26 +73,30 @@ class MakerDelta(Maker):
     def __init__(
         self,
         initMidPrice: float,
-        deltaFunction: Callable[[float], float],
+        deltaFunction: Callable[[float, float], float],
+        maturity: float,
         numOneWayOffers: int,
         tickInterval: float = None,
         tickQuantity: float = None,
     ):
         """
-        minTickSize     : the tickSize of the underlying internal orderBook
+        initMidPrice    : first orderbook to setup
+        deltaFunction   : (price, time_to_live) -> delta
+        maturity        : maturity of the replication strategy
         numOneWayOffers : the number of offers to deposit on way (bids = asks)
         tickInterval    : if not None, offers will deployed every tickInterval x minTickSize
         tickQuantity    : if not None, offers will be deployed at prices that require delta adjustment of tickQuantity
         """
         super().__init__()
         self.deltaFun = deltaFunction
-        self.deltaFunCache = {}
+        self.maturity = maturity
         self.numOneWayOffers = numOneWayOffers
         self.tickInterval = tickInterval
         self.tickQuantity = tickQuantity
         self.offersLists = OffersLists()
+        self.updateTime(0)
         self.swap_asset(self.computeDelta(initMidPrice), initMidPrice)
-        self._init_orderbook(initMidPrice)
+        self._init_orderbook(initMidPrice, 0)
 
     def buy_at_first_rank(self) -> Transaction:
 
@@ -140,7 +143,6 @@ class MakerDelta(Maker):
         return take_maker_order(best_bid)
 
     def post_hook(self, price: float, time: float):
-        if self.asset < -1:
-            True
         if self.lastOffer:
-            self._init_orderbook(price)
+            self.updateTime(time)
+            self._init_orderbook(price, time)

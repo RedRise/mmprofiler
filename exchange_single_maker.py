@@ -1,6 +1,6 @@
 from cmath import isclose
 from models.order import TOLERANCE
-from models.orderbook import OrderBook
+from models.offers_lists import OffersLists
 from models.transaction import Transaction
 from makers.maker import Maker
 from typing import List
@@ -8,51 +8,58 @@ from typing import List
 # first implementation of single-maker/single-taker exchange
 
 
-class ExchangeSingleMaker():
+class ExchangeSingleMaker:
 
     transactions: List[Transaction] = []
 
     @property
-    def orderBook(self) -> OrderBook:
-        return self.maker.offersLists
+    def offers(self) -> OffersLists:
+        return self.maker.offers
 
     @property
-    def midPrice(self):
-        return self.maker.midPrice
+    def midPrice(self) -> float:
+        return self.offers.midPrice
 
     def __init__(self, maker: Maker) -> None:
         self.transactions = []
         self.maker = maker
 
-    def start_trading_session(self):
-        self.maker.start_trading_session()
-
-    def buy_at_first_rank(self) -> transactions:
+    def buy_at_first_rank(self) -> Transaction:
         transaction = self.maker.buy_at_first_rank()
         if transaction:
             self.transactions.append(transaction)
         return transaction
 
-    def sell_at_first_rank(self):
+    def sell_at_first_rank(self) -> Transaction:
         transaction = self.maker.sell_at_first_rank()
         if transaction:
             self.transactions.append(transaction)
         return transaction
 
-    def apply_arbitrage(self, price: float):
-        """ logic of external price coming to arbitrage the exchange. Maker 
+    def _take_to_price(self, price: float, time: float = None):
+        """logic of external price coming to arbitrage the exchange. Maker
         orders are taken until price fit in bid/offer.
         Warning on matching price with maker order limit (we dont trade the
         liquidity redeployed, infinite loop if redeployed at same price).
         """
-        offer = self.orderBook.get_best_ask()
+        offer = self.offers.get_best_ask()
         if offer and offer.price <= price:
             _ = self.buy_at_first_rank()
             if offer and not isclose(offer.price, price, rel_tol=TOLERANCE):
-                self.apply_arbitrage(price)
+                self._take_to_price(price)
         else:
-            bid = self.orderBook.get_best_bid()
+            bid = self.offers.get_best_bid()
             if bid and price <= bid.price:
                 _ = self.sell_at_first_rank()
                 if bid and not isclose(bid.price, price, rel_tol=TOLERANCE):
-                    self.apply_arbitrage(price)
+                    self._take_to_price(price)
+
+    def apply_arbitrage(self, price: float, time: float = None):
+        """logic of external price coming to arbitrage the exchange. Maker
+        orders are taken until price fit in bid/offer.
+        Warning on matching price with maker order limit (we dont trade the
+        liquidity redeployed, infinite loop if redeployed at same price).
+        """
+        self._take_to_price(price, time)
+
+        self.maker.post_hook(price, time)
