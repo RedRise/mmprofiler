@@ -11,6 +11,7 @@ from typing import List
 class ExchangeSingleMaker:
 
     transactions: List[Transaction] = []
+    time: float
 
     @property
     def offers(self) -> OffersLists:
@@ -23,20 +24,23 @@ class ExchangeSingleMaker:
     def __init__(self, maker: Maker) -> None:
         self.transactions = []
         self.maker = maker
+        self.time = 0
 
     def buy_at_first_rank(self) -> Transaction:
         transaction = self.maker.buy_at_first_rank()
         if transaction:
+            transaction.time = self.time
             self.transactions.append(transaction)
         return transaction
 
     def sell_at_first_rank(self) -> Transaction:
         transaction = self.maker.sell_at_first_rank()
         if transaction:
+            transaction.time = self.time
             self.transactions.append(transaction)
         return transaction
 
-    def _take_to_price(self, price: float, time: float = None):
+    def _take_to_price(self, price: float):
         """logic of external price coming to arbitrage the exchange. Maker
         orders are taken until price fit in bid/offer.
         Warning on matching price with maker order limit (we dont trade the
@@ -60,6 +64,8 @@ class ExchangeSingleMaker:
         Warning on matching price with maker order limit (we dont trade the
         liquidity redeployed, infinite loop if redeployed at same price).
         """
-        self._take_to_price(price, time)
+        self.time = time
+
+        self._take_to_price(price)
 
         self.maker.post_hook(price, time)

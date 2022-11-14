@@ -5,7 +5,7 @@ import pandas as pd
 from exchange_single_maker import ExchangeSingleMaker
 from makers.maker_zero_knowledge import MakerZeroKnowledge
 import plotly.express as px
-from utils import orderbook_to_dataframe
+from utils import offers_to_dataframe
 
 
 maker = MakerZeroKnowledge(
@@ -19,14 +19,14 @@ print(exchange.offers)
 
 # exchange.apply_arbitrage(108)
 
-obdf1 = orderbook_to_dataframe(exchange.offers)
+obdf1 = offers_to_dataframe(exchange.offers)
 obdf1["time"] = "init"
 
 price_loop = [111, 95, 100]
 for price in price_loop:
     exchange.apply_arbitrage(price)
 
-obdf2 = orderbook_to_dataframe(exchange.offers)
+obdf2 = offers_to_dataframe(exchange.offers)
 obdf2["time"] = "after"
 
 # obdf_wide = obdf1.set_index("price").join(obdf2.set_index("price"), lsuffix="_init", rsuffix="_term")

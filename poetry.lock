@@ -245,6 +245,14 @@ optional = false
 python-versions = "*"
 
 [[package]]
+name = "numerize"
+version = "0.12"
+description = "Convert large numbers into readable numbers for humans."
+category = "main"
+optional = false
+python-versions = "*"
+
+[[package]]
 name = "numpy"
 version = "1.23.4"
 description = "NumPy is the fundamental package for array computing with Python."
@@ -700,7 +708,7 @@ testing = ["pytest (>=6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "flake8 
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.10"
-content-hash = "c0a9d4b33bd03ddbf282088faa2875952d19c7e05504393c4e3b65b9d0bccec0"
+content-hash = "2606458a330272473393b3c61c516da74ca33af80ceeaed53b1a977ef9b2405c"
 
 [metadata.files]
 altair = []
@@ -725,6 +733,7 @@ jinja2 = []
 jsonschema = []
 markupsafe = []
 mypy-extensions = []
+numerize = []
 numpy = []
 packaging = []
 pandas = []

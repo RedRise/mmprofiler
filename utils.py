@@ -1,6 +1,6 @@
 import plotly.graph_objects as go
 import pandas as pd
-from models.orderbook import OrderBook
+from models.offers_lists import OffersLists
 
 
 def compute_maker_pnl(transactions):
@@ -8,9 +8,9 @@ def compute_maker_pnl(transactions):
     asset = 0
     for tx in transactions:
         asset -= tx.quantity
-        cash += tx.quantity*tx.price
+        cash += tx.quantity * tx.price
 
-    return asset*transactions[-1].price+cash
+    return asset * transactions[-1].price + cash
 
 
 def compute_maker_pnls(transactions) -> pd.DataFrame:
@@ -21,27 +21,24 @@ def compute_maker_pnls(transactions) -> pd.DataFrame:
     data = []
     for tx in transactions:
         asset -= tx.quantity
-        cash += tx.quantity*tx.price
-        data.append((cash, asset, tx.price, asset*tx.price+cash))
+        cash += tx.quantity * tx.price
+        data.append((cash, asset, tx.price, asset * tx.price + cash))
 
-    return pd.DataFrame(data, columns=['cash', 'asset', 'price', 'pnl'])
+    return pd.DataFrame(data, columns=["cash", "asset", "price", "pnl"])
 
 
 def plot_pnl(pnls):
-    x = pnls['price']
-    y = pnls['pnl']
+    x = pnls["price"]
+    y = pnls["pnl"]
     fig = go.Figure()
-    fig.add_trace(go.Scatter(x=x, y=y,
-                             mode='lines',
-                             name='pnl'))
+    fig.add_trace(go.Scatter(x=x, y=y, mode="lines", name="pnl"))
     fig.show()
 
 
-
-def orderbook_to_dataframe(ob : OrderBook) -> pd.DataFrame:
-    bids = [(x.price, x.quantity) for x in ob.ranked_bids]
-    asks = [(x.price, -x.quantity) for x in ob.ranked_asks]
+def offers_to_dataframe(offers: OffersLists) -> pd.DataFrame:
+    bids = [(x.price, x.quantity, "BID") for x in offers.ranked_bids]
+    asks = [(x.price, x.quantity, "ASK") for x in offers.ranked_asks]
     bids.extend(asks)
 
-    result = pd.DataFrame(bids, columns=["price", "quantity"])
-    return result.sort_values("price")
+    result = pd.DataFrame(bids, columns=["price", "quantity", "way"])
+    return result.sort_values("price", ascending=False)

@@ -12,6 +12,7 @@ plotly = "^5.11.0"
 sortedcontainers = "^2.4.0"
 scipy = "^1.9.3"
 streamlit = "^1.14.0"
+numerize = "^0.12"
 
 [tool.poetry.dev-dependencies]
 pytest = "^7.2.0"

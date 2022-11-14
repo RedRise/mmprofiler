@@ -86,6 +86,7 @@ class MakerDelta(Maker):
         tickQuantity    : if not None, offers will be deployed at prices that require delta adjustment of tickQuantity
         """
         super().__init__()
+        initMidPrice = float(initMidPrice)
         self.deltaFun = deltaFunction
         self.deltaFunCache = {}
         self.numOneWayOffers = numOneWayOffers

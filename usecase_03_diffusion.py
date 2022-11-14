@@ -7,10 +7,10 @@ from makers.maker_zero_knowledge import MakerZeroKnowledge
 from makers.maker_delta import MakerDelta
 from makers.maker_replication import MakerReplication
 import pandas as pd
-import numpy as np
-from scipy.stats import norm
 import plotly.express as px
 from simul.path_generators import geom_brownian_path
+import utils_black_scholes as bs
+
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -37,19 +37,12 @@ numBids = numOffers = int(40 / tick)
 size = 2 / (numBids + numOffers)
 
 
-def BS_DELTA(S, K, T, r, sigma):
-    d1 = (np.log(S / K) + (r + sigma**2 / 2) * T) / (sigma * np.sqrt(T))
-    # d2 = d1 - sigma * np.sqrt(T)
-    return norm.cdf(d1)
-
-
 def get_maker_delta(num_offers: int, tick_interval: float) -> MakerDelta:
     maker = MakerDelta(
         px_init,
-        lambda x: -BS_DELTA(x, 100, 1, 0, 0.2),
+        lambda x: -bs.delta(x, 100, 1, 0, 0.2),
         num_offers,
         tick_interval,
-        hedgedAtStart=True,
     )
     return maker
 
@@ -57,11 +50,10 @@ def get_maker_delta(num_offers: int, tick_interval: float) -> MakerDelta:
 def get_maker_repli_hedged(num_offers: int, tick_interval: float) -> MakerReplication:
     maker = MakerReplication(
         px_init,
-        lambda x, t: -BS_DELTA(x, 120, t, 0, 0.2),
+        lambda x, t: -bs.delta(x, 120, t, 0, 0.2),
         maturity=MATURITY,
         numOneWayOffers=num_offers,
         tickInterval=tick_interval,
-        hedgedAtStart=True,
     )
     return maker
 
