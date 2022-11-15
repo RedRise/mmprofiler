@@ -66,83 +66,119 @@ st.plotly_chart(fig, use_container_width=True)
 st.subheader("Market Making parameters")
 
 
-def clear_state_maker():
-    del st.session_state["maker"]
+# State
+
+sExchange = "exchange"
+sTimeIdx = "time_index"
+sTime = "time"
+sTimeIdxNxt = "time_idx_nxt"
+sTimeOver = "time_over"
+sPxCur = "px_cur"
+sPxNxt = "px_nxt"
+sDltCur = "delta_cur"
+sDltNxt = "delta_nxt"
+
+# maker (delta function) / exchange
+
+
+def state_reset_maker():
+    st.session_state[sExchange].maker = None
 
 
 numOffers = st.slider(
-    "Number of offers (one way)", 1, 10, 3, on_change=clear_state_maker
+    "Number of offers (one way)", 1, 10, 3,
+    on_change=state_reset_maker
 )
 
 
 tickInterval = st.number_input(
-    "Tick interval to post offers", 0.25, 10.0, 2.0, 0.25, on_change=clear_state_maker
+    "Tick interval to post offers", 0.25, 10.0, 2.0, 0.25,
+    on_change=state_reset_maker
 )
 
-mat_float = float(nb_day) * float(mat_ratio) / float(NB_DAY_PER_YEAR)
 
-if "maker" not in st.session_state:
+def build_maker():
+    p0 = st.session_state.get(sPxCur, px_init)
+
+    mat_float = float(nb_day) * float(mat_ratio) / float(NB_DAY_PER_YEAR)
     maker = MakerDelta(
-        initMidPrice=px_init,
+        initMidPrice=p0,
         deltaFunction=lambda x: -delta_fun(x, mat_float),
         numOneWayOffers=numOffers,
         tickInterval=tickInterval,
         tickQuantity=None,
     )
-    st.session_state["maker"] = maker
-    st.session_state["exchange"] = ExchangeSingleMaker(maker=maker)
+    return maker
+
+
+def init_exchange():
+    maker = build_maker()
+    st.session_state[sExchange] = ExchangeSingleMaker(maker)
+
+
+if sExchange not in st.session_state:
+    init_exchange()
+
+if not st.session_state[sExchange].maker:
+    st.session_state[sExchange].maker = build_maker()
+
+
+def update_state_time_idx():
+    i = st.session_state[sTimeIdx]
+    stss = st.session_state
+    stss[sPxCur] = prices[i]
+    time_idx_next = i + 1 if not stss[sTimeOver] else i
+    stss[sTimeIdxNxt] = time_idx_next
+    stss[sPxNxt] = prices[time_idx_next]
+
+    maker = st.session_state[sExchange].maker
+    stss[sDltCur] = maker.computeDelta(stss[sPxCur])
+    stss[sDltNxt] = maker.computeDelta(stss[sPxNxt])
+
+
+def time_clock():
+    if not sTimeIdx in st.session_state:
+        st.session_state[sTimeIdx] = 0
+        st.session_state[sTimeOver] = False
+        update_state_time_idx()
+    else:
+        time_idx = min(st.session_state[sTimeIdx] + 1, len(prices))
+        st.session_state[sTimeIdx] = time_idx
+        st.session_state[sTimeOver] = (time_idx >= len(prices))
 
 
 # offers_dt =
-st.table(ut.offers_to_dataframe(st.session_state["maker"].offers))
-
-# fig_ob = px.bar(offers_dt, x="quantity", y="price", color="way", orientation="h")
-# st.plotly_chart(fig_ob, use_container_width=True)
+st.table(ut.offers_to_dataframe(st.session_state[sExchange].offers))
 
 
-def set_counters(time_index: int):
-    time_idx_cur = time_index
-    time_idx_nxt = min(time_idx_cur + 1, len(prices))
+# if "time_idx_cur" not in st.session_state:
+#     set_counters(0)
+time_clock()
 
-    px_cur = prices[time_index]
-    px_nxt = prices[time_idx_nxt]
-
-    st.session_state["time_idx_cur"] = time_idx_cur
-    st.session_state["time_idx_nxt"] = time_idx_nxt
-    st.session_state["px_cur"] = px_cur
-    st.session_state["px_nxt"] = px_nxt
-
-
-if "time_idx_cur" not in st.session_state:
-    set_counters(0)
-
-if st.checkbox("Override next price"):
-    st.session_state["px_nxt"] = st.number_input(
-        "Override next price", 50.0, 200.0, st.session_state["px_cur"]
-    )
-
-delta_cur = st.session_state["maker"].computeDelta(st.session_state["px_cur"])
-delta_nxt = st.session_state["maker"].computeDelta(st.session_state["px_nxt"])
 
 # https://docs.streamlit.io/library/api-reference/data/st.metric
 col1, col2 = st.columns(2)
-col1.metric("Current Price", "%.2f" % st.session_state["px_cur"])
-col2.metric("Current Delta", "%.2f" % delta_cur)
+col1.metric("Current Price", "%.2f" % st.session_state[sPxCur])
+col2.metric("Current Delta", "%.2f" % st.session_state[sDltCur])
 col1.metric(
     "Next Price",
-    "%.2f" % st.session_state["px_nxt"],
-    "%.4f" % (st.session_state["px_nxt"] - st.session_state["px_cur"]),
+    "%.2f" % st.session_state[sPxNxt],
+    "%.4f" % (st.session_state[sPxNxt] - st.session_state[sPxCur]),
 )
-col2.metric("Next Delta", "%.2f" % delta_nxt, "%.4f" % (delta_nxt - delta_cur))
+col2.metric("Next Delta", "%.2f" % st.session_state[sDltNxt], "%.4f" % (
+    st.session_state[sDltNxt] - st.session_state[sDltCur]))
 
 if st.button("Arb next Observation"):
     st.session_state["exchange"].apply_arbitrage(
-        price=st.session_state["px_nxt"],
-        time=float(st.session_state["time_idx_nxt"]) * time_delta,
+        price=st.session_state[sPxNxt],
+        time=float(st.session_state[sTimeIdxNxt]) * time_delta,
     )
-    set_counters(st.session_state["time_idx_nxt"])
-    # breakpoint()
+    # set_counters(st.session_state["time_idx_nxt"])
+    time_clock()
+    update_state_time_idx()
 
 st.write(st.session_state)
 
 st.write(st.session_state["exchange"].transactions)
+
+# https://plotly.com/python/line-charts/#interpolation-with-line-plots

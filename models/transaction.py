@@ -20,9 +20,14 @@ class Transaction:
         self.time = time
 
     def __str__(self) -> str:
-        return "[tx] {} {:.5f} @ {:.5f}".format(
-            "BUY" if self.quantity > 0 else "SELL", abs(self.quantity), self.price
-        )
+        return "[tx] t:{:.4f} {} {:.4f} @{:.4f}".format(
+            self.time if self.time else -1,
+            "BUY " if self.quantity > 0 else "SELL",
+            abs(self.quantity),
+            self.price)
+
+    def __repr__(self) -> str:
+        return self.__str__()
 
 
 def take_maker_order(order: Order, time: float = None) -> Transaction:
