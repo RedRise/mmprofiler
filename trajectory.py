@@ -1,15 +1,15 @@
+from plotly.subplots import make_subplots
 import math
 from typing import List
-
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
-
 import utils as ut
 import utils_black_scholes as bs
 from exchange_single_maker import ExchangeSingleMaker
 from makers.maker_delta import MakerDelta
+from makers.maker_replication import MakerReplication
 from models.transaction import Transaction
 from simul.path_generators import geom_brownian_path
 
@@ -21,11 +21,26 @@ NB_DAY_PER_YEAR = 252
 
 st.set_page_config(layout="wide")
 
+# DATA CONTAINER --------------------------------------------------------------
+
+
+def exc_snap(time, bbid, bask, price, assets, delta_theo):
+    return {
+        "time": time,
+        "bbid": bbid,
+        "bask": bask,
+        "price": price,
+        "assets": assets,
+        "delta_theo": delta_theo,
+    }
+
+
 # STREAMLIT STATE -------------------------------------------------------------
 
-## State Variable Names
+# State Variable Names
 
-sExchange = "exchange"
+sExc = "exchange"
+sExcSnapshots = "exchange_snapshots"
 sTimeIdx = "time_index"
 sTime = "time"
 sTimeIdxNxt = "time_index_nxt"
@@ -37,7 +52,7 @@ sDltNxt = "delta_nxt"
 sRebuildMaker = "rebuild_maker"
 
 
-## functions (getter/setter)
+# functions (getter/setter)
 def state_set(varName: str, value):
     st.session_state[varName] = value
 
@@ -49,9 +64,11 @@ def state_get(varName: str, default_value=None):
 
 
 def state_context_repr():
-    return "σs:{}, K:{} σr:{}, w:{} n:{}".format(
-        i_volat, i_strike, i_volat_repli, tickInterval, numOffers
-    )
+    return "σs:{}, {} K:{} σr:{}, w:{} n:{}".format(
+        i_volat,
+        "D" if i_maker_repli else "S",
+        i_strike,
+        i_volat_repli, i_tick_width, i_nb_offers)
 
 
 def state_maker_to_rebuild():
@@ -66,11 +83,12 @@ tabHome, tabTraj, tabCallOption, tabMaker, tabMC = st.tabs(
     ["Home", "Single Path", "Call Option", "Maker", "🎲 Monte Carlo"]
 )
 
-## TAB Home ---------------------------
+# TAB Home ---------------------------
 
 tabHome.write("This app illustrates a market making activity based on curve.")
 
-## TAB TRAJ ---------------------------
+
+# TAB TRAJ ---------------------------
 
 st_loc = tabTraj
 
@@ -106,7 +124,7 @@ fig = px.line(
 st_loc.plotly_chart(fig, use_container_width=True)
 
 
-## TAB CALL OPTION --------------------
+# TAB CALL OPTION --------------------
 
 st_loc = tabCallOption
 
@@ -136,7 +154,8 @@ def call_module():
         int(i_px_init),
         step=10,
     )
-    volat = col2up.slider("Volatility used for replication (%)", 1, 80, 20) / 100
+    volat = col2up.slider(
+        "Volatility used for replication (%)", 1, 80, 20) / 100
     rate = col2up.slider("Rate used for replication (%)", -2, 20, 0) / 100
     return (mat_ratio, strike, volat, rate)
 
@@ -149,7 +168,8 @@ def delta_fun(x: float, t: float) -> float:
     return bs.delta(x, i_strike, t, i_rate_repli, i_volat_repli)
 
 
-char_prices = list(range(math.floor(i_px_init * 0.5), math.ceil(1.5 * i_px_init)))
+char_prices = list(range(math.floor(i_px_init * 0.5),
+                   math.ceil(1.5 * i_px_init)))
 char_deltas = [delta_fun(x, i_mat) for x in char_prices]
 fig = px.line(x=char_prices, y=char_deltas)
 
@@ -157,7 +177,7 @@ st_loc.subheader("Delta Function")
 st_loc.plotly_chart(fig, use_container_width=True)
 
 
-## TAB MAKER --------------------------
+# TAB MAKER --------------------------
 
 st_loc = tabMaker
 
@@ -165,15 +185,15 @@ col1up, _, col2up = st_loc.columns([1, 1, 2])
 
 col1up.subheader("Parameters")
 
-numOffers = col1up.slider(
+i_nb_offers = col1up.slider(
     "Number of offers (one way)", 1, 10, 3, on_change=state_maker_to_rebuild
 )
 
-tickInterval = col1up.number_input(
+i_tick_width = col1up.number_input(
     "Tick interval to post offers",
     0.25,
     10.0,
-    2.0,
+    1.0,
     0.25,
     on_change=state_maker_to_rebuild,
 )
@@ -181,12 +201,8 @@ tickInterval = col1up.number_input(
 i_maker_repli = col1up.checkbox("Replication (vs. fixed curve)")
 
 tabFrame, tabPlot = col2up.tabs(["DataFrame", "Chart"])
-stMakerTable = tabFrame.empty()
-stMakerPlot = tabPlot.empty()
-
-st_loc.markdown("""---""")
-
-col1up, col2up, _, col4 = st_loc.columns([1, 1, 1, 1])
+stMkTablePlaceholder = tabFrame.empty()
+stMkPlotPlaceholder = tabPlot.empty()
 
 
 def build_maker(use_latest_price: bool):
@@ -196,43 +212,43 @@ def build_maker(use_latest_price: bool):
         p0 = i_px_init
 
     mat_float = float(i_nb_day) * float(i_mat_ratio) / float(NB_DAY_PER_YEAR)
-    maker = MakerDelta(
-        initMidPrice=p0,
-        deltaFunction=lambda x: -delta_fun(x, mat_float),
-        numOneWayOffers=numOffers,
-        tickInterval=tickInterval,
-        tickQuantity=None,
-    )
+
+    if i_maker_repli:
+        maker = MakerReplication(
+            initMidPrice=p0,
+            deltaFunction=lambda x, t: -delta_fun(x, t),
+            maturity=i_mat,
+            numOneWayOffers=i_nb_offers,
+            tickInterval=i_tick_width,
+            tickQuantity=None
+        )
+    else:
+        maker = MakerDelta(
+            initMidPrice=p0,
+            deltaFunction=lambda x: -delta_fun(x, mat_float),
+            numOneWayOffers=i_nb_offers,
+            tickInterval=i_tick_width,
+            tickQuantity=None,
+        )
     return maker
 
 
 def init_exchange():
-    maker = build_maker(use_latest_price=True)
-    st.session_state[sExchange] = ExchangeSingleMaker(maker)
+    state_set(sExc, ExchangeSingleMaker(None))
+    state_set(sRebuildMaker, True)
+    state_set(sExcSnapshots, [])
 
 
-if sExchange not in st.session_state:
-    init_exchange()
-
-
-def reset_state_time_idx():
+def reset_maker_state():
     if sTimeIdx in st.session_state:
         del st.session_state[sTimeIdx]
-    state_maker_to_rebuild()
+    # state_maker_to_rebuild()
     init_exchange()
     update_state_time_idx()
 
 
-def display_maker():
-    offers_dt = ut.offers_to_dataframe(st.session_state[sExchange].offers)
-    with stMakerTable:
-        st.table(offers_dt)
-
-    with stMakerPlot:
-        st.plotly_chart(
-            px.bar(offers_dt, x="quantity", y="price", color="way", orientation="h"),
-            use_container_width=True,
-        )
+if sExc not in st.session_state:
+    init_exchange()
 
 
 def update_state_time_idx():
@@ -249,12 +265,23 @@ def update_state_time_idx():
 
     if state_get(sRebuildMaker, True):
         maker = build_maker(True)
-        st.session_state[sExchange].maker = maker
+        st.session_state[sExc].maker = maker
         state_set(sRebuildMaker, False)
 
-    maker = st.session_state[sExchange].maker
+    maker = st.session_state[sExc].maker
     stss[sDltCur] = maker.computeDelta(stss[sPxCur])
     stss[sDltNxt] = maker.computeDelta(stss[sPxNxt])
+
+    bbid = maker.offers.get_best_bid()
+    bask = maker.offers.get_best_ask()
+    state_get(sExcSnapshots).append(
+        exc_snap(
+            i * i_time_delta,
+            bbid.price if bbid else None,
+            bask.price if bask else None,
+            stss[sPxCur],
+            maker.asset,
+            maker.computeDelta(stss[sPxCur])))
 
 
 def time_clock():
@@ -264,17 +291,34 @@ def time_clock():
 
 
 def apply_arbitrage():
-    st.session_state["exchange"].apply_arbitrage(
-        price=st.session_state[sPxNxt],
-        time=float(st.session_state[sTimeIdxNxt]) * i_time_delta,
-    )
-    # set_counters(st.session_state["time_idx_nxt"])
+    px_nxt = state_get(sPxNxt)
+    time_nxt = float(state_get(sTimeIdxNxt)) * i_time_delta
+
+    exchange: ExchangeSingleMaker = state_get(sExc)
+    exchange.apply_arbitrage(price=px_nxt, time=time_nxt)
+
     time_clock()
     update_state_time_idx()
 
 
+def display_maker():
+    offers_dt = ut.offers_to_dataframe(st.session_state[sExc].offers)
+    with stMkTablePlaceholder:
+        st.table(offers_dt)
+
+    with stMkPlotPlaceholder:
+        st.plotly_chart(
+            px.bar(offers_dt, x="quantity", y="price",
+                   color="way", orientation="h"),
+            use_container_width=True,
+        )
+
+
 update_state_time_idx()
 display_maker()
+
+st_loc.markdown("""---""")
+col1up, col2up, _, col4 = st_loc.columns([1, 1, 1, 1])
 
 if col1up.button("Go to next time step"):
     apply_arbitrage()
@@ -285,11 +329,11 @@ if col2up.button("Go to end"):
     display_maker()
 
 if col4.button("Reset"):
-    reset_state_time_idx()
+    reset_maker_state()
     display_maker()
 
 
-### Metrics
+# Metrics
 
 col1up, col2up, col3, col4 = st_loc.columns(4)
 col1up.metric("Current Price", "%.2f" % st.session_state[sPxCur])
@@ -305,62 +349,65 @@ col4.metric(
     "%.4f" % (st.session_state[sDltNxt] - st.session_state[sDltCur]),
 )
 
-tabMakerAssets, tabMakerAssets3D, tabTxs, tabDebug = st_loc.tabs(
-    ["Maker assets", "Maker assets 3D", "Taker transactions", "[debug_state]"]
+tabMakerAssets, tabMakerAssets3D, tabTxs, tabSnaps, tabDebug = st_loc.tabs(
+    ["Maker assets", "Maker assets 3D", "Taker txs", "Snapshots",  "[debug_state]"]
 )
 
-tabDebug.write(st.session_state)
+snaps_dt = pd.DataFrame(state_get(sExcSnapshots))
 
 tabTxs.write(st.session_state["exchange"].transactions)
+tabSnaps.table(snaps_dt)
+tabDebug.write(st.session_state)
 
-# https://plotly.com/python/line-charts/#interpolation-with-line-plots
-
-
-txs: List[Transaction]
-txs = st.session_state["exchange"].transactions
-plt_dt = ut.transactions_to_dataframe(txs)
-plt_dt["quantity"] = -plt_dt["quantity"]
-plt_dt.loc[-1] = [0, i_px_init, 0]
-plt_dt.sort_index(inplace=True)
-plt_dt["quantity_cs"] = plt_dt["quantity"].cumsum()
-
-
-def delta_scatter(prices, point_per_unit: int):
-    px_min = math.floor(min(prices) - 0.1)
-    px_max = math.ceil(max(prices) + 0.1)
-    nb_points = (px_max - px_min) * point_per_unit + 1
-    width = (px_max - px_min) / (nb_points - 1)
-
-    xs = []
-    ys = []
-    for i in range(nb_points):
-        x = px_min + i * width
-        xs.append(x)
-        ys.append(-delta_fun(x, 1) + delta_fun(i_px_init, 1))
-    return (xs, ys)
-
-
-delta_x, delta_y = delta_scatter(plt_dt["price"], 2)
+fig = make_subplots(specs=[[{"secondary_y": True}]])
+fig.add_trace(go.Scatter(
+    x=snaps_dt["time"],
+    y=snaps_dt["price"],
+    name="price"
+), secondary_y=False)
+fig.add_trace(go.Scatter(
+    x=snaps_dt["time"],
+    y=snaps_dt["bbid"],
+    line_shape="hv",
+    name="best bid"
+), secondary_y=False)
+fig.add_trace(go.Scatter(
+    x=snaps_dt["time"],
+    y=snaps_dt["bask"],
+    line_shape="hv",
+    name="best ask"
+), secondary_y=False)
+fig.add_trace(go.Scatter(
+    x=[state_get(sTimeIdx) * i_time_delta,
+        state_get(sTimeIdxNxt) * i_time_delta],
+    y=[state_get(sPxCur), state_get(sPxNxt)],
+    line=dict(dash="dash"),
+    name="next price",
+), secondary_y=False)
+fig.add_trace(go.Scatter(
+    x=snaps_dt["time"],
+    y=snaps_dt["delta_theo"],
+    name="delta theo",
+    visible='legendonly',
+), secondary_y=True)
+fig.update_xaxes(title_text="Time (in year)")
+fig['layout']['yaxis2']['showgrid'] = False
+tabMakerAssets.plotly_chart(fig, use_container_width=True)
 
 fig = go.Figure()
-fig.add_trace(
-    go.Line(x=delta_x, y=delta_y, name="delta", mode="lines", line_color="lightblue"),
-)
-fig.add_trace(
-    go.Scatter(
-        x=plt_dt["price"],
-        y=plt_dt["quantity_cs"],
-        marker={"color": plt_dt["time"], "colorscale": "rainbow", "size": 5},
-        name="maker delta",
-        line_shape="vh",
-        line_color="grey",
-        line_width=1,
-    ),
-)
+fig.add_trace(go.Scatter(
+    x=snaps_dt["delta_theo"],
+    y=snaps_dt["assets"],
+    mode="markers",
+    name="asset vs. delta"
+))
+
+fig.update_xaxes(title_text="Target Delta")
+fig.update_yaxes(title_text="Realized Delta")
 tabMakerAssets.plotly_chart(fig, use_container_width=True)
 
 
-## TAB MONTE CARLO
+# TAB MONTE CARLO
 
 st_loc = tabMC
 
@@ -416,11 +463,13 @@ def display_monte_carlo():
 
     with placeholder.container():
 
-        fig = px.scatter(sims, x="price", y="asset", color="maker").add_hline(y=0)
+        fig = px.scatter(sims, x="price", y="asset",
+                         color="maker").add_hline(y=0)
         st.plotly_chart(fig, use_container_width=True)
 
         # plotting E[ pnl_T | price_T ]
-        fig = px.scatter(sims, x="price", y="pnl", color="maker").add_hline(y=0)
+        fig = px.scatter(sims, x="price", y="pnl",
+                         color="maker").add_hline(y=0)
         st.plotly_chart(fig, use_container_width=True)
 
 
