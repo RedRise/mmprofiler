@@ -8,7 +8,6 @@ from models.order import Order, OrderType
 class Transaction:
 
     price: float
-    signedQuantity: float
     time: float
 
     def __init__(
@@ -24,7 +23,8 @@ class Transaction:
             self.time if self.time else -1,
             "BUY " if self.quantity > 0 else "SELL",
             abs(self.quantity),
-            self.price)
+            self.price,
+        )
 
     def __repr__(self) -> str:
         return self.__str__()

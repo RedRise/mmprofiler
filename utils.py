@@ -1,6 +1,8 @@
 import plotly.graph_objects as go
 import pandas as pd
 from models.offers_lists import OffersLists
+from models.transaction import Transaction
+from typing import List
 
 
 def compute_maker_pnl(transactions):
@@ -41,4 +43,10 @@ def offers_to_dataframe(offers: OffersLists) -> pd.DataFrame:
     bids.extend(asks)
 
     result = pd.DataFrame(bids, columns=["price", "quantity", "way"])
+
     return result.sort_values("price", ascending=False)
+
+
+def transactions_to_dataframe(txs: List[Transaction]) -> pd.DataFrame:
+    values = [(tx.time, tx.price, tx.quantity) for tx in txs]
+    return pd.DataFrame(values, columns=["time", "price", "quantity"])
