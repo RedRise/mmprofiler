@@ -1,5 +1,6 @@
 tasks:
   - before: |
+      pyenv install 3.10.6
       curl -sSL https://install.python-poetry.org | python3 -
       printf 'export PATH="$PATH:/home/gitpod/.local/bin"' >> $HOME/.bashrc
       source $HOME/.bashrc
