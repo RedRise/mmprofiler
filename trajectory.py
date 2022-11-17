@@ -56,6 +56,8 @@ sMonteCarloCancel = "monte_carlo_cancel"
 
 
 # functions (getter/setter)
+
+
 def state_set(varName: str, value):
     st.session_state[varName] = value
 
@@ -84,10 +86,13 @@ def state_maker_to_rebuild():
 
 # STREAMLIT LAYOUT ------------------------------------------------------------
 
-st.title("Market Making with curves / options")
+st.markdown(
+    "# Market Making with curves &emsp;[![Star](https://img.shields.io/github/stars/redrise/mmprofiler.svg?logo=github&style=social)](https://github.com/RedRise/mmprofiler)",
+    unsafe_allow_html=True)
+
 
 tabHome, tabTraj, tabCallOption, tabMaker, tabMC = st.tabs(
-    ["Home", "Single Path", "Call Option", "Maker", "🎲 Monte Carlo"]
+    ["🏠 Home", "📈 Single Path", "💸 Call Option", "🔨 Maker", "🎲 Monte Carlo"]
 )
 
 # TAB Home ---------------------------
@@ -132,7 +137,7 @@ st_loc = tabTraj
 
 st_loc.subheader("Simulation parameters")
 
-col1up, _, col2up = st_loc.columns([2, 1, 2])
+col1up, _, col2up = st_loc.columns([4, 1, 4])
 
 i_nb_day = col1up.slider("Nb simulated days", 0, 750, 252)
 i_nb_step_day = col1up.slider("Nb intraday simulations", 0, 10, 1)
@@ -169,12 +174,12 @@ st_loc.write(
     "This section describes the target call option to take delta function from. To be more precise, the market making activity will be to hedge a long call position, i.e. we will target - delta position of risky asset."
 )
 
-col1up, colMid, col2up = st_loc.columns([2, 1, 2])
+col1up, colMid, col2up = st_loc.columns([4, 1, 4])
 
 col1up.subheader("Parameters")
 stCallPricePlaceholder = col2up.empty()
 
-col1up, colMid, col2up = st_loc.columns([2, 1, 2])
+col1up, colMid, col2up = st_loc.columns([4, 1, 4])
 
 i_mat_ratio = (
     col1up.slider(
