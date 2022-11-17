@@ -1,15 +1,17 @@
 # MMPROFILER
 
-Mangrove/Marekt Maker Profiler
+Mangrove/Market Maker Profiler
 
-## Setup
+## GitPod
+
+[![Gitpod](https://gitpod.io/button/open-in-gitpod.svg)](https://gitpod.io/#https://github.com/RedRise/mmprofiler)
+
+## Local Setup
 
 ### Installation
 
 1. Install Poetry
-2. run poetry install
-
-### Tests
+2. run ```poetry install```
 
 ### Module import issue
 
@@ -21,8 +23,8 @@ PYTHONPATH=./
 
 ### Usecases
 
-See ```usecase_xx.py``` files for demos.
+See ```usecase_xx.py``` files for demos
 
 ### Streamlit
 
-TODO
+- ```poetry run streamlit run ./trajectory.py``` : call option hedging
