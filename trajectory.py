@@ -193,7 +193,8 @@ i_strike = col1up.slider(
     int(i_px_init),
     step=10,
 )
-i_volat_repli = col2up.slider("Volatility used for replication (%)", 1, 80, 20) / 100
+i_volat_repli = col2up.slider(
+    "Volatility used for replication (%)", 1, 80, 20) / 100
 i_rate_repli = col2up.slider("Rate used for replication (%)", -2, 20, 0) / 100
 
 i_mat = float(i_mat_ratio) * float(i_nb_day) / float(NB_DAY_PER_YEAR)
@@ -210,7 +211,8 @@ def delta_fun(x: float, t: float) -> float:
     return bs.call_delta(x, i_strike, t, i_rate_repli, i_volat_repli)
 
 
-char_prices = list(range(math.floor(i_px_init * 0.5), math.ceil(1.5 * i_px_init)))
+char_prices = list(range(math.floor(i_px_init * 0.5),
+                   math.ceil(1.5 * i_px_init)))
 char_deltas = [delta_fun(x, i_mat) for x in char_prices]
 fig = px.line(x=char_prices, y=char_deltas)
 fig.update_layout(showlegend=False)
@@ -220,18 +222,16 @@ st_loc.plotly_chart(fig, use_container_width=True)
 stStaticDeltaPlaceHolder.plotly_chart(fig, use_container_width=True)
 
 char_time = list(range(1, i_nb_day, 10))
-# char_prices = np.array(char_prices[::10])
 dlt3d_dt = pd.DataFrame(char_prices[::5], columns=["price"]).merge(
     pd.DataFrame(char_time, columns=["time"]), how="cross"
 )
 dlt3d_dt["time"] = dlt3d_dt["time"] / NB_DAY_PER_YEAR
-dlt3d_dt["delta"] = dlt3d_dt.apply(lambda r: delta_fun(r["price"], r["time"]), axis=1)
-print(dlt3d_dt)
+dlt3d_dt["delta"] = dlt3d_dt.apply(
+    lambda r: delta_fun(r["price"], r["time"]), axis=1)
 
 dlt3d_dt = pd.pivot(
     dlt3d_dt, index="price", columns="time", values="delta"
-)  # Reshape from long to wide
-print(dlt3d_dt)
+)
 fig = go.Figure(data=[go.Surface(z=dlt3d_dt, x=dlt3d_dt.index, y=char_time)])
 fig.update_traces(showscale=False)
 fig.update_scenes(
@@ -240,7 +240,6 @@ fig.update_scenes(
     zaxis_title_text="delta",
 )
 stDynamicDeltaPlaceHolder.plotly_chart(fig, use_container_width=True)
-
 
 # TAB MAKER --------------------------
 
@@ -375,7 +374,8 @@ def display_maker():
 
     with stMkPlotPlaceholder:
         st.plotly_chart(
-            px.bar(offers_dt, x="quantity", y="price", color="way", orientation="h"),
+            px.bar(offers_dt, x="quantity", y="price",
+                   color="way", orientation="h"),
             use_container_width=True,
         )
 
@@ -443,7 +443,8 @@ fig.add_trace(
 )
 fig.add_trace(
     go.Scatter(
-        x=[state_get(sTimeIdx) * i_time_delta, state_get(sTimeIdxNxt) * i_time_delta],
+        x=[state_get(sTimeIdx) * i_time_delta,
+           state_get(sTimeIdxNxt) * i_time_delta],
         y=[state_get(sPxCur), state_get(sPxNxt)],
         line=dict(dash="dash"),
         name="next price",
@@ -533,11 +534,13 @@ def display_monte_carlo():
 
     with placeholder.container():
 
-        fig = px.scatter(sims, x="price", y="asset", color="maker").add_hline(y=0)
+        fig = px.scatter(sims, x="price", y="asset",
+                         color="maker").add_hline(y=0)
         st.plotly_chart(fig, use_container_width=True)
 
         # plotting E[ pnl_T | price_T ]
-        fig = px.scatter(sims, x="price", y="pnl", color="maker").add_hline(y=0)
+        fig = px.scatter(sims, x="price", y="pnl",
+                         color="maker").add_hline(y=0)
         if i_add_call:
             fig.add_hline(y=i_call_price, name="call price", opacity=0.3)
         st.plotly_chart(fig, use_container_width=True)
