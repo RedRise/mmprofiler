@@ -1,6 +1,6 @@
 # MMPROFILER
 
-Mangrove/Market Maker Profiler. This repo contains several usecases to run on a python termina + one streamlit webapp ([available here](http://mmprofiler.deblaye.xyz/)).
+Mangrove/Market Maker Profiler. This repo contains several usecases to run on a python terminal + one streamlit webapp ([available here](http://mmprofiler.deblaye.xyz/)).
 
 ## GitPod
 
