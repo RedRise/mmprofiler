@@ -1,3 +1,5 @@
+image: workspace-python-3.10
+
 tasks:
   - before: |
       pyenv install 3.10.6
