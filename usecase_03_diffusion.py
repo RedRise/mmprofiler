@@ -40,7 +40,7 @@ size = 2 / (numBids + numOffers)
 def get_maker_delta(num_offers: int, tick_interval: float) -> MakerDelta:
     maker = MakerDelta(
         px_init,
-        lambda x: -bs.delta(x, 100, 1, 0, 0.2),
+        lambda x: -bs.call_delta(x, 100, 1, 0, 0.2),
         num_offers,
         tick_interval,
     )
@@ -50,7 +50,7 @@ def get_maker_delta(num_offers: int, tick_interval: float) -> MakerDelta:
 def get_maker_repli_hedged(num_offers: int, tick_interval: float) -> MakerReplication:
     maker = MakerReplication(
         px_init,
-        lambda x, t: -bs.delta(x, 120, t, 0, 0.2),
+        lambda x, t: -bs.call_delta(x, 120, t, 0, 0.2),
         maturity=MATURITY,
         numOneWayOffers=num_offers,
         tickInterval=tick_interval,

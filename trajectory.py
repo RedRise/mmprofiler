@@ -1,6 +1,7 @@
 from plotly.subplots import make_subplots
 import math
 from typing import List
+import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -50,6 +51,8 @@ sPxNxt = "px_nxt"
 sDltCur = "delta_cur"
 sDltNxt = "delta_nxt"
 sRebuildMaker = "rebuild_maker"
+sMonteCarlo = "monte_carlo"
+sMonteCarloCancel = "monte_carlo_cancel"
 
 
 # functions (getter/setter)
@@ -64,11 +67,15 @@ def state_get(varName: str, default_value=None):
 
 
 def state_context_repr():
-    return "σs:{}, {} K:{} σr:{}, w:{} n:{}".format(
-        i_volat,
+    return "μ:{:.0f} σs:{:.0f}, {} K:{} σr:{:.0f}, {} x {}".format(
+        100 * i_yield,
+        100 * i_volat,
         "D" if i_maker_repli else "S",
         i_strike,
-        i_volat_repli, i_tick_width, i_nb_offers)
+        100 * i_volat_repli,
+        i_nb_offers,
+        i_tick_width,
+    )
 
 
 def state_maker_to_rebuild():
@@ -77,7 +84,7 @@ def state_maker_to_rebuild():
 
 # STREAMLIT LAYOUT ------------------------------------------------------------
 
-st.title("Market Making with curves")
+st.title("Market Making with curves / options")
 
 tabHome, tabTraj, tabCallOption, tabMaker, tabMC = st.tabs(
     ["Home", "Single Path", "Call Option", "Maker", "🎲 Monte Carlo"]
@@ -85,8 +92,39 @@ tabHome, tabTraj, tabCallOption, tabMaker, tabMC = st.tabs(
 
 # TAB Home ---------------------------
 
-tabHome.write("This app illustrates a market making activity based on curve.")
+text = """This app illustrates a market making activity based on a *curve* that
+represents, for the maker, the target position of (base) tokens depending on
+it's price. This application will be focused on a specific set of curves based
+on the call option delta (in the Black and Scholes model). This delta curve
+expresses the derivative of the call price, with respect to the underlying
+token.
 
+A distinction will be made between static and dynamic curves."""
+
+tabHome.markdown(text)
+
+
+col1, col2 = tabHome.columns(2)
+
+col1.subheader("Static Curves")
+text = """When a maker animates liquidity with a static curve, this is
+very close to supply liquidity on a CF-AMM (constant function AMM). This app
+allows to play with call option delta curves (for a fixed maturity), but same
+experiment can be done with any decreasing curve."""
+col1.markdown(text)
+
+
+col2.subheader("Dynamic Curves")
+text = """Dynamic curves make sense to illustrate options replication.
+When buying a call option, you can offset it's small price variations by selling
+a quantity of tokens (equals to it's delta). This delta depends on the token
+price and the time to maturity that decreases over time (this is why we say that
+the delta curve w.r.t. price is dynamic)"""
+col2.markdown(text)
+
+col1, _, col2 = tabHome.columns([4, 1, 4])
+stStaticDeltaPlaceHolder = col1.empty()
+stDynamicDeltaPlaceHolder = col2.empty()
 
 # TAB TRAJ ---------------------------
 
@@ -127,54 +165,81 @@ st_loc.plotly_chart(fig, use_container_width=True)
 # TAB CALL OPTION --------------------
 
 st_loc = tabCallOption
-
-st_loc.subheader("Parameters")
 st_loc.write(
     "This section describes the target call option to take delta function from. To be more precise, the market making activity will be to hedge a long call position, i.e. we will target - delta position of risky asset."
 )
 
-col1up, _, col2up = st_loc.columns([2, 1, 2])
+col1up, colMid, col2up = st_loc.columns([2, 1, 2])
 
+col1up.subheader("Parameters")
+stCallPricePlaceholder = col2up.empty()
 
-def call_module():
-    mat_ratio = (
-        col1up.slider(
-            "Maturity ratio w.r.t the number of simulated days (%)",
-            0,
-            100,
-            100,
-            step=25,
-        )
-        / 100
+col1up, colMid, col2up = st_loc.columns([2, 1, 2])
+
+i_mat_ratio = (
+    col1up.slider(
+        "Maturity ratio w.r.t the number of simulated days (%)",
+        100,
+        200,
+        100,
+        step=25,
     )
-    strike = col1up.slider(
-        "Strike",
-        math.floor(0.10 * i_px_init),
-        math.ceil(2 * i_px_init),
-        int(i_px_init),
-        step=10,
-    )
-    volat = col2up.slider(
-        "Volatility used for replication (%)", 1, 80, 20) / 100
-    rate = col2up.slider("Rate used for replication (%)", -2, 20, 0) / 100
-    return (mat_ratio, strike, volat, rate)
+    / 100
+)
+i_strike = col1up.slider(
+    "Strike",
+    math.floor(0.10 * i_px_init),
+    math.ceil(2 * i_px_init),
+    int(i_px_init),
+    step=10,
+)
+i_volat_repli = col2up.slider("Volatility used for replication (%)", 1, 80, 20) / 100
+i_rate_repli = col2up.slider("Rate used for replication (%)", -2, 20, 0) / 100
 
-
-(i_mat_ratio, i_strike, i_volat_repli, i_rate_repli) = call_module()
 i_mat = float(i_mat_ratio) * float(i_nb_day) / float(NB_DAY_PER_YEAR)
+
+i_call_price = bs.call_price(
+    S=i_px_init, K=i_strike, r=i_rate_repli, sigma=i_volat_repli, T=i_mat
+)
+with stCallPricePlaceholder:
+    text = "### Call Price : <mark>{:.2f}</mark>"
+    st.markdown(text.format(i_call_price), unsafe_allow_html=True)
 
 
 def delta_fun(x: float, t: float) -> float:
-    return bs.delta(x, i_strike, t, i_rate_repli, i_volat_repli)
+    return bs.call_delta(x, i_strike, t, i_rate_repli, i_volat_repli)
 
 
-char_prices = list(range(math.floor(i_px_init * 0.5),
-                   math.ceil(1.5 * i_px_init)))
+char_prices = list(range(math.floor(i_px_init * 0.5), math.ceil(1.5 * i_px_init)))
 char_deltas = [delta_fun(x, i_mat) for x in char_prices]
 fig = px.line(x=char_prices, y=char_deltas)
+fig.update_layout(showlegend=False)
 
 st_loc.subheader("Delta Function")
 st_loc.plotly_chart(fig, use_container_width=True)
+stStaticDeltaPlaceHolder.plotly_chart(fig, use_container_width=True)
+
+char_time = list(range(1, i_nb_day, 10))
+# char_prices = np.array(char_prices[::10])
+dlt3d_dt = pd.DataFrame(char_prices[::5], columns=["price"]).merge(
+    pd.DataFrame(char_time, columns=["time"]), how="cross"
+)
+dlt3d_dt["time"] = dlt3d_dt["time"] / NB_DAY_PER_YEAR
+dlt3d_dt["delta"] = dlt3d_dt.apply(lambda r: delta_fun(r["price"], r["time"]), axis=1)
+print(dlt3d_dt)
+
+dlt3d_dt = pd.pivot(
+    dlt3d_dt, index="price", columns="time", values="delta"
+)  # Reshape from long to wide
+print(dlt3d_dt)
+fig = go.Figure(data=[go.Surface(z=dlt3d_dt, x=dlt3d_dt.index, y=char_time)])
+fig.update_traces(showscale=False)
+fig.update_scenes(
+    xaxis_title_text="price",
+    yaxis_title_text="time to maturity",
+    zaxis_title_text="delta",
+)
+stDynamicDeltaPlaceHolder.plotly_chart(fig, use_container_width=True)
 
 
 # TAB MAKER --------------------------
@@ -220,7 +285,7 @@ def build_maker(use_latest_price: bool):
             maturity=i_mat,
             numOneWayOffers=i_nb_offers,
             tickInterval=i_tick_width,
-            tickQuantity=None
+            tickQuantity=None,
         )
     else:
         maker = MakerDelta(
@@ -281,7 +346,9 @@ def update_state_time_idx():
             bask.price if bask else None,
             stss[sPxCur],
             maker.asset,
-            maker.computeDelta(stss[sPxCur])))
+            maker.computeDelta(stss[sPxCur]),
+        )
+    )
 
 
 def time_clock():
@@ -308,8 +375,7 @@ def display_maker():
 
     with stMkPlotPlaceholder:
         st.plotly_chart(
-            px.bar(offers_dt, x="quantity", y="price",
-                   color="way", orientation="h"),
+            px.bar(offers_dt, x="quantity", y="price", color="way", orientation="h"),
             use_container_width=True,
         )
 
@@ -350,7 +416,7 @@ col4.metric(
 )
 
 tabMakerAssets, tabMakerAssets3D, tabTxs, tabSnaps, tabDebug = st_loc.tabs(
-    ["Maker assets", "Maker assets 3D", "Taker txs", "Snapshots",  "[debug_state]"]
+    ["Maker assets", "Maker assets 3D", "Taker txs", "Snapshots", "[debug_state]"]
 )
 
 snaps_dt = pd.DataFrame(state_get(sExcSnapshots))
@@ -360,63 +426,66 @@ tabSnaps.table(snaps_dt)
 tabDebug.write(st.session_state)
 
 fig = make_subplots(specs=[[{"secondary_y": True}]])
-fig.add_trace(go.Scatter(
-    x=snaps_dt["time"],
-    y=snaps_dt["price"],
-    name="price"
-), secondary_y=False)
-fig.add_trace(go.Scatter(
-    x=snaps_dt["time"],
-    y=snaps_dt["bbid"],
-    line_shape="hv",
-    name="best bid"
-), secondary_y=False)
-fig.add_trace(go.Scatter(
-    x=snaps_dt["time"],
-    y=snaps_dt["bask"],
-    line_shape="hv",
-    name="best ask"
-), secondary_y=False)
-fig.add_trace(go.Scatter(
-    x=[state_get(sTimeIdx) * i_time_delta,
-        state_get(sTimeIdxNxt) * i_time_delta],
-    y=[state_get(sPxCur), state_get(sPxNxt)],
-    line=dict(dash="dash"),
-    name="next price",
-), secondary_y=False)
-fig.add_trace(go.Scatter(
-    x=snaps_dt["time"],
-    y=snaps_dt["delta_theo"],
-    name="delta theo",
-    visible='legendonly',
-), secondary_y=True)
+fig.add_trace(
+    go.Scatter(x=snaps_dt["time"], y=snaps_dt["price"], name="price"), secondary_y=False
+)
+fig.add_trace(
+    go.Scatter(
+        x=snaps_dt["time"], y=snaps_dt["bbid"], line_shape="hv", name="best bid"
+    ),
+    secondary_y=False,
+)
+fig.add_trace(
+    go.Scatter(
+        x=snaps_dt["time"], y=snaps_dt["bask"], line_shape="hv", name="best ask"
+    ),
+    secondary_y=False,
+)
+fig.add_trace(
+    go.Scatter(
+        x=[state_get(sTimeIdx) * i_time_delta, state_get(sTimeIdxNxt) * i_time_delta],
+        y=[state_get(sPxCur), state_get(sPxNxt)],
+        line=dict(dash="dash"),
+        name="next price",
+    ),
+    secondary_y=False,
+)
+fig.add_trace(
+    go.Scatter(
+        x=snaps_dt["time"],
+        y=snaps_dt["delta_theo"],
+        name="delta theo",
+        visible="legendonly",
+    ),
+    secondary_y=True,
+)
 fig.update_xaxes(title_text="Time (in year)")
-fig['layout']['yaxis2']['showgrid'] = False
+fig["layout"]["yaxis2"]["showgrid"] = False
 tabMakerAssets.plotly_chart(fig, use_container_width=True)
 
-fig = go.Figure()
-fig.add_trace(go.Scatter(
-    x=snaps_dt["delta_theo"],
-    y=snaps_dt["assets"],
-    mode="markers",
-    name="asset vs. delta"
-))
-
+fig = px.scatter(
+    snaps_dt,
+    x="delta_theo",
+    y="assets",
+    # mode="markers",
+    # name="asset vs. delta",
+    trendline="ols",
+    trendline_color_override="orange",
+)
 fig.update_xaxes(title_text="Target Delta")
 fig.update_yaxes(title_text="Realized Delta")
 tabMakerAssets.plotly_chart(fig, use_container_width=True)
 
 
-# TAB MONTE CARLO
+# TAB MONTE CARLO ---------------------
 
 st_loc = tabMC
 
-col1up, col2up, _, col4 = st_loc.columns([1, 1, 1, 1])
+col0, col1up, col2up, col4 = st_loc.columns([2, 1, 1, 1])
+
+i_add_call = col0.checkbox("Add Long Call Position")
 
 # https://blog.streamlit.io/how-to-build-a-real-time-live-dashboard-with-streamlit/#4-how-to-refresh-the-dashboard-for-real-time-or-live-data-feed
-
-# wrap arbitrage logic
-sMonteCarlo = "monte_carlo"
 state_get(sMonteCarlo, [])
 
 
@@ -450,8 +519,6 @@ def monte_carlo_n(nbSim: int):
         monte_carlo_one(resStore)
 
 
-sMonteCarloCancel = "monte_carlo_cancel"
-
 placeholder = tabMC.empty()
 
 
@@ -460,16 +527,19 @@ def display_monte_carlo():
         state_get(sMonteCarlo), columns=["maker", "price", "cash", "asset", "nb_tx"]
     )
     sims["pnl"] = sims["price"] * sims["asset"] + sims["cash"]
+    sims["call"] = (sims["price"] - i_strike).clip(0, None)
+    if i_add_call:
+        sims["pnl"] += sims["call"]
 
     with placeholder.container():
 
-        fig = px.scatter(sims, x="price", y="asset",
-                         color="maker").add_hline(y=0)
+        fig = px.scatter(sims, x="price", y="asset", color="maker").add_hline(y=0)
         st.plotly_chart(fig, use_container_width=True)
 
         # plotting E[ pnl_T | price_T ]
-        fig = px.scatter(sims, x="price", y="pnl",
-                         color="maker").add_hline(y=0)
+        fig = px.scatter(sims, x="price", y="pnl", color="maker").add_hline(y=0)
+        if i_add_call:
+            fig.add_hline(y=i_call_price, name="call price", opacity=0.3)
         st.plotly_chart(fig, use_container_width=True)
 
 

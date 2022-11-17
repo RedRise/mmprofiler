@@ -1,0 +1,20 @@
+image:
+  file: .gitpod.Dockerfile
+
+tasks:
+  - before: |
+      curl -sSL https://install.python-poetry.org | python3 -
+      printf 'export PATH="$PATH:/home/gitpod/.local/bin"' >> $HOME/.bashrc
+      source $HOME/.bashrc
+      poetry config virtualenvs.create false
+    init: |
+      poetry install
+# List the ports to expose. Learn more https://www.gitpod.io/docs/config-ports/
+ports:
+  - port: 8888
+    onOpen: open-preview
+
+vscode:
+  extensions:
+    - ms-python.python
+    - danielgjackson.auto-dark-mode-windows
