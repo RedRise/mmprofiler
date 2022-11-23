@@ -135,6 +135,22 @@ stDynamicDeltaPlaceHolder = col2.empty()
 
 st_loc = tabTraj
 
+st_exp = st_loc.expander("Details", True)
+
+st_exp.markdown(r'''
+The trajectory is simulated as a geometric Brownian Motion. A basic model
+assuming that the asset log-returns of the token price (St) follow a gaussian
+distribution. (Wt) is the standard Brownian Motion. A closed formula (right
+side) can be derived from this equation (left side).
+This is called the **Black & Scholes model**.
+''')
+
+col1, col2 = st_exp.columns(2)
+col1.latex(r'''\frac{dS_t}{S_t} = \mu dt + \sigma dW_t''')
+col2.latex(
+    r'''S_t = S_0 \times e^{(\mu - \frac{\sigma^2}{2})  t + \sigma  W_t }''')
+
+
 st_loc.subheader("Simulation parameters")
 
 col1up, _, col2up = st_loc.columns([4, 1, 4])
@@ -143,9 +159,10 @@ i_nb_day = col1up.slider("Nb simulated days", 0, 750, 252)
 i_nb_step_day = col1up.slider("Nb intraday simulations", 0, 10, 1)
 i_seed = col1up.number_input("Seed for diffusion", 0, None, 123)
 
-i_yield = col2up.slider("Yearly return (%)", -10, 50, 10) / 100
-i_volat = col2up.slider("Yearly volatility (%)", 1, 80, 20) / 100
-i_px_init = col2up.number_input("Initial price", 50.0, 200.0, 100.0, step=1.0)
+i_yield = col2up.slider("Yearly return (%, μ)", -10, 50, 10) / 100
+i_volat = col2up.slider("Yearly volatility (%, σ)", 1, 80, 20) / 100
+i_px_init = col2up.number_input(
+    "Initial price (S_0)", 50.0, 200.0, 100.0, step=1.0)
 
 i_time_delta = 1 / (float(NB_DAY_PER_YEAR) * float(i_nb_step_day))
 
@@ -170,9 +187,34 @@ st_loc.plotly_chart(fig, use_container_width=True)
 # TAB CALL OPTION --------------------
 
 st_loc = tabCallOption
-st_loc.write(
-    "This section describes the target call option to take delta function from. To be more precise, the market making activity will be to hedge a long call position, i.e. we will target - delta position of risky asset."
-)
+
+st_exp = st_loc.expander("Details", True)
+
+col1, col2 = st_exp.columns(2)
+
+col1.markdown(r'''
+This section describes the target call option to take delta function from. To be
+more precise, the market making activity will be to hedge a long call position,
+i.e. we will target - delta position of risky asset.
+
+When using the Black & Scholes model, [closed
+formulas](https://www.macroption.com/black-scholes-formula/) can be computed for
+the price of the price (noted Π(Call)) and it's derivative with respect to the
+token price St (noted Δ(Call)).
+
+N is the cumulative distribution function
+([cdf](https://en.wikipedia.org/wiki/Cumulative_distribution_function)) of the
+[standard gaussian](https://en.wikipedia.org/wiki/Normal_distribution) random
+variable.
+''')
+
+col2.latex(r'''
+\begin{align*}
+    d_1 & = \frac{ln(S_0/K) + (r + \sigma^2/2)T}{\sigma \sqrt{t}} \\[2.0ex]
+    \Pi(Call_T^K) &  = S_0 N(d_1)  - K e^{-rT} N(d_1 - \sigma \sqrt{t}) \\[2.0ex]
+    \Delta(Call_T^K) & = N(d_1)
+\end{align*}
+''')
 
 col1up, colMid, col2up = st_loc.columns([4, 1, 4])
 
@@ -183,7 +225,7 @@ col1up, colMid, col2up = st_loc.columns([4, 1, 4])
 
 i_mat_ratio = (
     col1up.slider(
-        "Maturity ratio w.r.t the number of simulated days (%)",
+        "Maturity ratio w.r.t the number of simulated days (%, T)",
         100,
         200,
         100,
@@ -192,15 +234,16 @@ i_mat_ratio = (
     / 100
 )
 i_strike = col1up.slider(
-    "Strike",
+    "Strike (K)",
     math.floor(0.10 * i_px_init),
     math.ceil(2 * i_px_init),
     int(i_px_init),
     step=10,
 )
 i_volat_repli = col2up.slider(
-    "Volatility used for replication (%)", 1, 80, 20) / 100
-i_rate_repli = col2up.slider("Rate used for replication (%)", -2, 20, 0) / 100
+    "Volatility used for replication (%, σ)", 1, 80, 20) / 100
+i_rate_repli = col2up.slider(
+    "Rate used for replication (%, r)", -2, 20, 0) / 100
 
 i_mat = float(i_mat_ratio) * float(i_nb_day) / float(NB_DAY_PER_YEAR)
 
@@ -250,12 +293,14 @@ stDynamicDeltaPlaceHolder.plotly_chart(fig, use_container_width=True)
 
 st_loc = tabMaker
 
-col1up, _, col2up = st_loc.columns([1, 1, 2])
+_, col1up, _, col2up, _ = st_loc.columns([1, 2, 1, 3, 1])
 
 col1up.subheader("Parameters")
 
+i_maker_repli = col1up.checkbox("Use Dynamic Delta (vs. fixed curve)", True)
+
 i_nb_offers = col1up.slider(
-    "Number of offers (one way)", 1, 10, 3, on_change=state_maker_to_rebuild
+    "Number of offers (one way)", 1, 10, 2, on_change=state_maker_to_rebuild
 )
 
 i_tick_width = col1up.number_input(
@@ -267,7 +312,6 @@ i_tick_width = col1up.number_input(
     on_change=state_maker_to_rebuild,
 )
 
-i_maker_repli = col1up.checkbox("Replication (vs. fixed curve)")
 
 tabFrame, tabPlot = col2up.tabs(["DataFrame", "Chart"])
 stMkTablePlaceholder = tabFrame.empty()
@@ -393,6 +437,7 @@ col1up, col2up, _, col4 = st_loc.columns([1, 1, 1, 1])
 
 if col1up.button("Go to next time step"):
     apply_arbitrage()
+    display_maker()
 
 if col2up.button("Go to end"):
     while state_get(sTimeIdx) < len(i_prices) - 2:
@@ -420,8 +465,8 @@ col4.metric(
     "%.4f" % (st.session_state[sDltNxt] - st.session_state[sDltCur]),
 )
 
-tabMakerAssets, tabMakerAssets3D, tabTxs, tabSnaps, tabDebug = st_loc.tabs(
-    ["Maker assets", "Maker assets 3D", "Taker txs", "Snapshots", "[debug_state]"]
+tabMakerAssets, tabTxs, tabSnaps, tabDebug = st_loc.tabs(
+    ["Maker assets", "Taker txs", "Snapshots", "[debug_state]"]
 )
 
 snaps_dt = pd.DataFrame(state_get(sExcSnapshots))
@@ -487,9 +532,10 @@ tabMakerAssets.plotly_chart(fig, use_container_width=True)
 
 st_loc = tabMC
 
-col0, col1up, col2up, col4 = st_loc.columns([2, 1, 1, 1])
+col0, rightSide = st_loc.columns([4, 2])
 
-i_add_call = col0.checkbox("Add Long Call Position")
+i_add_call = rightSide.checkbox("Add Long Call Position")
+
 
 # https://blog.streamlit.io/how-to-build-a-real-time-live-dashboard-with-streamlit/#4-how-to-refresh-the-dashboard-for-real-time-or-live-data-feed
 state_get(sMonteCarlo, [])
@@ -525,7 +571,7 @@ def monte_carlo_n(nbSim: int):
         monte_carlo_one(resStore)
 
 
-placeholder = tabMC.empty()
+placeholder = col0.empty()
 
 
 def display_monte_carlo():
@@ -534,8 +580,6 @@ def display_monte_carlo():
     )
     sims["pnl"] = sims["price"] * sims["asset"] + sims["cash"]
     sims["call"] = (sims["price"] - i_strike).clip(0, None)
-    if i_add_call:
-        sims["pnl"] += sims["call"]
 
     with placeholder.container():
 
@@ -544,6 +588,10 @@ def display_monte_carlo():
         st.plotly_chart(fig, use_container_width=True)
 
         # plotting E[ pnl_T | price_T ]
+
+        if i_add_call:
+            sims["pnl"] += sims["call"]
+
         fig = px.scatter(sims, x="price", y="pnl",
                          color="maker").add_hline(y=0)
         if i_add_call:
@@ -551,12 +599,12 @@ def display_monte_carlo():
         st.plotly_chart(fig, use_container_width=True)
 
 
-if col2up.button("Stop Simulations"):
+if rightSide.button("Stop Simulations"):
     state_set(sMonteCarloCancel, True)
 else:
     state_set(sMonteCarloCancel, False)
 
-if col1up.button("Start Simulations..."):
+if rightSide.button("Start Simulations..."):
 
     state_set(sMonteCarloCancel, False)
 
@@ -569,6 +617,16 @@ if col1up.button("Start Simulations..."):
 with placeholder.container():
     display_monte_carlo()
 
-if col4.button("Reset Simulations"):
+if rightSide.button("Reset Simulations"):
     state_set(sMonteCarlo, [])
     display_monte_carlo()
+
+rightSide.markdown(r'''
+### Legend Syntax
+- μ : token annual yield
+- σs : token real volatility
+- D/S : dynamic or static delta curve
+- K : reference option strike
+- σr : volatility used for replication (mm)
+- n x d : number of offers x interval width
+''')
