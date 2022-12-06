@@ -13,6 +13,8 @@ from makers.maker_delta import MakerDelta
 from makers.maker_replication import MakerReplication
 from models.transaction import Transaction
 from simul.path_generators import geom_brownian_path
+from sklearn.preprocessing import KBinsDiscretizer
+from mlinsights.mlmodel import PiecewiseRegressor
 
 # CONSTANTS -------------------------------------------------------------------
 
@@ -88,7 +90,8 @@ def state_maker_to_rebuild():
 
 st.markdown(
     "# Market Making with curves &emsp;[![Star](https://img.shields.io/github/stars/redrise/mmprofiler.svg?logo=github&style=social)](https://github.com/RedRise/mmprofiler)",
-    unsafe_allow_html=True)
+    unsafe_allow_html=True,
+)
 
 
 tabHome, tabTraj, tabCallOption, tabMaker, tabMC = st.tabs(
@@ -137,18 +140,19 @@ st_loc = tabTraj
 
 st_exp = st_loc.expander("Details", True)
 
-st_exp.markdown(r'''
+st_exp.markdown(
+    r"""
 The trajectory is simulated as a geometric Brownian Motion. A basic model
 assuming that the asset log-returns of the token price (St) follow a gaussian
 distribution. (Wt) is the standard Brownian Motion. A closed formula (right
 side) can be derived from this equation (left side).
 This is called the **Black & Scholes model**.
-''')
+"""
+)
 
 col1, col2 = st_exp.columns(2)
-col1.latex(r'''\frac{dS_t}{S_t} = \mu dt + \sigma dW_t''')
-col2.latex(
-    r'''S_t = S_0 \times e^{(\mu - \frac{\sigma^2}{2})  t + \sigma  W_t }''')
+col1.latex(r"""\frac{dS_t}{S_t} = \mu dt + \sigma dW_t""")
+col2.latex(r"""S_t = S_0 \times e^{(\mu - \frac{\sigma^2}{2})  t + \sigma  W_t }""")
 
 
 st_loc.subheader("Simulation parameters")
@@ -161,8 +165,7 @@ i_seed = col1up.number_input("Seed for diffusion", 0, None, 123)
 
 i_yield = col2up.slider("Yearly return (%, μ)", -10, 50, 10) / 100
 i_volat = col2up.slider("Yearly volatility (%, σ)", 1, 80, 20) / 100
-i_px_init = col2up.number_input(
-    "Initial price (S_0)", 50.0, 200.0, 100.0, step=1.0)
+i_px_init = col2up.number_input("Initial price (S_0)", 50.0, 200.0, 100.0, step=1.0)
 
 i_time_delta = 1 / (float(NB_DAY_PER_YEAR) * float(i_nb_step_day))
 
@@ -192,7 +195,8 @@ st_exp = st_loc.expander("Details", True)
 
 col1, col2 = st_exp.columns(2)
 
-col1.markdown(r'''
+col1.markdown(
+    r"""
 This section describes the target call option to take delta function from. To be
 more precise, the market making activity will be to hedge a long call position,
 i.e. we will target - delta position of risky asset.
@@ -206,15 +210,18 @@ N is the cumulative distribution function
 ([cdf](https://en.wikipedia.org/wiki/Cumulative_distribution_function)) of the
 [standard gaussian](https://en.wikipedia.org/wiki/Normal_distribution) random
 variable.
-''')
+"""
+)
 
-col2.latex(r'''
+col2.latex(
+    r"""
 \begin{align*}
     d_1 & = \frac{ln(S_0/K) + (r + \sigma^2/2)T}{\sigma \sqrt{t}} \\[2.0ex]
     \Pi(Call_T^K) &  = S_0 N(d_1)  - K e^{-rT} N(d_1 - \sigma \sqrt{t}) \\[2.0ex]
     \Delta(Call_T^K) & = N(d_1)
 \end{align*}
-''')
+"""
+)
 
 col1up, colMid, col2up = st_loc.columns([4, 1, 4])
 
@@ -240,10 +247,8 @@ i_strike = col1up.slider(
     int(i_px_init),
     step=10,
 )
-i_volat_repli = col2up.slider(
-    "Volatility used for replication (%, σ)", 1, 80, 20) / 100
-i_rate_repli = col2up.slider(
-    "Rate used for replication (%, r)", -2, 20, 0) / 100
+i_volat_repli = col2up.slider("Volatility used for replication (%, σ)", 1, 80, 20) / 100
+i_rate_repli = col2up.slider("Rate used for replication (%, r)", -2, 20, 0) / 100
 
 i_mat = float(i_mat_ratio) * float(i_nb_day) / float(NB_DAY_PER_YEAR)
 
@@ -259,8 +264,7 @@ def delta_fun(x: float, t: float) -> float:
     return bs.call_delta(x, i_strike, t, i_rate_repli, i_volat_repli)
 
 
-char_prices = list(range(math.floor(i_px_init * 0.5),
-                   math.ceil(1.5 * i_px_init)))
+char_prices = list(range(math.floor(i_px_init * 0.5), math.ceil(1.5 * i_px_init)))
 char_deltas = [delta_fun(x, i_mat) for x in char_prices]
 fig = px.line(x=char_prices, y=char_deltas)
 fig.update_layout(showlegend=False)
@@ -274,12 +278,9 @@ dlt3d_dt = pd.DataFrame(char_prices[::5], columns=["price"]).merge(
     pd.DataFrame(char_time, columns=["time"]), how="cross"
 )
 dlt3d_dt["time"] = dlt3d_dt["time"] / NB_DAY_PER_YEAR
-dlt3d_dt["delta"] = dlt3d_dt.apply(
-    lambda r: delta_fun(r["price"], r["time"]), axis=1)
+dlt3d_dt["delta"] = dlt3d_dt.apply(lambda r: delta_fun(r["price"], r["time"]), axis=1)
 
-dlt3d_dt = pd.pivot(
-    dlt3d_dt, index="price", columns="time", values="delta"
-)
+dlt3d_dt = pd.pivot(dlt3d_dt, index="price", columns="time", values="delta")
 fig = go.Figure(data=[go.Surface(z=dlt3d_dt, x=dlt3d_dt.index, y=char_time)])
 fig.update_traces(showscale=False)
 fig.update_scenes(
@@ -423,8 +424,7 @@ def display_maker():
 
     with stMkPlotPlaceholder:
         st.plotly_chart(
-            px.bar(offers_dt, x="quantity", y="price",
-                   color="way", orientation="h"),
+            px.bar(offers_dt, x="quantity", y="price", color="way", orientation="h"),
             use_container_width=True,
         )
 
@@ -493,8 +493,7 @@ fig.add_trace(
 )
 fig.add_trace(
     go.Scatter(
-        x=[state_get(sTimeIdx) * i_time_delta,
-           state_get(sTimeIdxNxt) * i_time_delta],
+        x=[state_get(sTimeIdx) * i_time_delta, state_get(sTimeIdxNxt) * i_time_delta],
         y=[state_get(sPxCur), state_get(sPxNxt)],
         line=dict(dash="dash"),
         name="next price",
@@ -583,8 +582,7 @@ def display_monte_carlo():
 
     with placeholder.container():
 
-        fig = px.scatter(sims, x="price", y="asset",
-                         color="maker").add_hline(y=0)
+        fig = px.scatter(sims, x="price", y="asset", color="maker").add_hline(y=0)
         st.plotly_chart(fig, use_container_width=True)
 
         # plotting E[ pnl_T | price_T ]
@@ -592,8 +590,7 @@ def display_monte_carlo():
         if i_add_call:
             sims["pnl"] += sims["call"]
 
-        fig = px.scatter(sims, x="price", y="pnl",
-                         color="maker").add_hline(y=0)
+        fig = px.scatter(sims, x="price", y="pnl", color="maker").add_hline(y=0)
         if i_add_call:
             fig.add_hline(y=i_call_price, name="call price", opacity=0.3)
         st.plotly_chart(fig, use_container_width=True)
@@ -621,7 +618,9 @@ if rightSide.button("Reset Simulations"):
     state_set(sMonteCarlo, [])
     display_monte_carlo()
 
-rightSide.markdown(r'''
+
+rightSide.markdown(
+    r"""
 ### Legend Syntax
 - μ : token annual yield
 - σs : token real volatility
@@ -629,4 +628,5 @@ rightSide.markdown(r'''
 - K : reference option strike
 - σr : volatility used for replication (mm)
 - n x d : number of offers x interval width
-''')
+"""
+)
