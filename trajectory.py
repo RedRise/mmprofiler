@@ -60,6 +60,11 @@ sMonteCarloCancel = "monte_carlo_cancel"
 # functions (getter/setter)
 
 
+@st.experimental_memo
+def convert_df(df):
+    return df.to_csv(index=False).encode("utf-8")
+
+
 def state_set(varName: str, value):
     st.session_state[varName] = value
 
@@ -535,6 +540,8 @@ col0, rightSide = st_loc.columns([4, 2])
 
 i_add_call = rightSide.checkbox("Add Long Call Position")
 
+i_detect_trend = rightSide.checkbox("Detect linear trends")
+
 
 # https://blog.streamlit.io/how-to-build-a-real-time-live-dashboard-with-streamlit/#4-how-to-refresh-the-dashboard-for-real-time-or-live-data-feed
 state_get(sMonteCarlo, [])
@@ -573,6 +580,20 @@ def monte_carlo_n(nbSim: int):
 placeholder = col0.empty()
 
 
+def get_x_range(df, column: str):
+    return np.arange(df[column].min().round(), df[column].max().round())
+
+
+def fit_and_predict(df, x):
+
+    x = np.array(x).reshape(-1, 1)
+    model = PiecewiseRegressor(verbose=True, binner=KBinsDiscretizer(n_bins=4))
+    model.fit(
+        df["price"].to_numpy().reshape(-1, 1), df["pnl"].to_numpy().reshape(-1, 1)
+    )
+    return pd.DataFrame({"price": x[:, 0], "pnl": model.predict(x)}).reset_index()
+
+
 def display_monte_carlo():
     sims = pd.DataFrame(
         state_get(sMonteCarlo), columns=["maker", "price", "cash", "asset", "nb_tx"]
@@ -590,10 +611,22 @@ def display_monte_carlo():
         if i_add_call:
             sims["pnl"] += sims["call"]
 
+        sims = sims[["price", "pnl", "maker"]]
+
+        if i_detect_trend:
+            x_range = get_x_range(sims, "price")
+            fits = sims.groupby("maker").apply(lambda df: fit_and_predict(df, x_range))
+            fits = fits.reset_index().drop(["index", "level_1"], axis=1)
+            fits["maker"] = "(fit) " + fits["maker"]
+
+            sims = pd.concat([sims, fits[["price", "pnl", "maker"]]])
+
         fig = px.scatter(sims, x="price", y="pnl", color="maker").add_hline(y=0)
         if i_add_call:
             fig.add_hline(y=i_call_price, name="call price", opacity=0.3)
+
         st.plotly_chart(fig, use_container_width=True)
+        state_set("sims_csv", convert_df(sims))
 
 
 if rightSide.button("Stop Simulations"):
@@ -614,10 +647,20 @@ if rightSide.button("Start Simulations..."):
 with placeholder.container():
     display_monte_carlo()
 
+
 if rightSide.button("Reset Simulations"):
     state_set(sMonteCarlo, [])
     display_monte_carlo()
 
+if state_get("sims_csv", None):
+    rightSide.download_button(
+        "Press to Download",
+        state_get("sims_csv", None),
+        "sims.csv",
+        "text/csv",
+        key="download-csv",
+        # disabled=not sims_csv,
+    )
 
 rightSide.markdown(
     r"""
