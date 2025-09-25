@@ -26,8 +26,9 @@ The app provides interactive tools to explore market making strategies based on 
 ### Installation
 
   1. [Install Poetry](https://python-poetry.org/docs/#installation)
-  2. Run: ```poetry install```
-  3. Or use the Makefile: ```make install```
+  2. The project is bound to use Python 3.10 (for dependencies compatibility): ```poetry env use $(which python3.10)``` (or adapt it to your Python 3.10 path)
+  3. Run: ```poetry install```
+  4. Or use the Makefile: ```make install```
 
 #### Run the Streamlit Web App
 
