@@ -1,8 +1,10 @@
 [tool.poetry]
 name = "mmprofiler"
 version = "0.1.0"
+package-mode = false
 description = "Mangrove/Market Maker Profiler"
 authors = ["Guillaume Garchery <polluxxx@gmail.com>"]
+
 
 [tool.poetry.dependencies]
 python = "^3.10"
@@ -17,7 +19,7 @@ statsmodels = "^0.13.5"
 scikit-learn = "^1.1.3"
 mlinsights = "^0.3.649"
 
-[tool.poetry.dev-dependencies]
+[tool.poetry.group.dev.dependencies]
 pytest = "^7.2.0"
 black = {version = "^22.10.0", allow-prereleases = true}
 
